@@ -60,17 +60,18 @@ command -v jq >/dev/null 2>&1 || { echo "Error: 'jq' is required." >&2; exit 3; 
 
 print_entry() {
   local dir=$1 xhtml=$2 is_component=${3:-false}
-  local name datafile namespace params pf kind sig ns ns2 simple
+  local name datafile namespace params pf kind sig ns ns2 simple purpose
   name="$(basename "$dir")"
   datafile=$(ls -1 "$dir"/*.d.json 2>/dev/null | head -n1 || true)
   namespace=""
   params=""
+  purpose=""
   if [[ -n $datafile ]]; then
     ns=$(jq -r '.namespace // empty' "$datafile" 2>/dev/null || true)
     [[ -n $ns ]] && namespace=$ns
     simple=$(jq -r '.simpleName // empty' "$datafile" 2>/dev/null || true)
     [[ -n $simple ]] && name=$simple
-    params=$(jq -r '.fields[]? | "- " + .name + " (" + .type + ")"' "$datafile" 2>/dev/null || true)
+    params=$(jq -r '.fields[]? | "   - `" + .name + "` (" + .type + ")"' "$datafile" 2>/dev/null || true)
   fi
   pf=$(find "$dir" -maxdepth 1 -type f -name '*.p.json' | head -n1 || true)
   kind=""
@@ -81,39 +82,29 @@ print_entry() {
     sig=$(jq -r '.elements[]? | select(.type=="HtmlDialogStart") | .name // empty' "$pf" 2>/dev/null | head -n1 || true)
   fi
 
-  echo
-  echo "#### $name"
-  echo
-  echo "- **Name Space**: ${namespace:-(unknown)}"
-  echo "- **Paths**:"
-  echo "  - xhtml: $(to_module_path "$xhtml")"
-  echo "- **Component type**: ${kind:-HTML_DIALOG}"
-  if [[ -n $params ]]; then
-    echo "- **Parameter**:"
-    echo "$params" | sed 's/^/  /'
+  # Build a one-line purpose hint from the component kind and name
+  if [[ $is_component == true ]]; then
+    purpose="Reusable UI component"
   else
-    echo "- **Parameter**: (none declared)"
+    purpose="UI dialog"
+  fi
+
+  echo
+  echo "#### ${name} — ${purpose}"
+  echo
+  echo "- **Namespace:** ${namespace:-(unknown)}"
+  echo "- **Component type:** ${kind:-HTML_DIALOG}"
+  if [[ -n $params ]]; then
+    echo "- **Fields:**"
+    echo "$params"
+  else
+    echo "- **Fields:** (none declared)"
   fi
   if [[ -n $pf ]]; then
-    if [[ $is_component == true ]]; then
-      if [[ -n $sig ]]; then
-        echo "- **Main logic/feature included in that UI**: Component dialog with start method '${sig}'"
-      else
-        echo "- **Main logic/feature included in that UI**: Reusable Ivy component (behavior in managed bean)"
-      fi
+    if [[ -n $sig ]]; then
+      echo "- **Where used:** Dialog with start method '${sig}' — process: $(to_module_path "$pf")"
     else
-      if [[ -n $sig ]]; then
-        echo "- **Main logic/feature included in that UI**: Dialog with start method '${sig}'"
-      else
-        echo "- **Main logic/feature included in that UI**: UI dialog (behavior defined in process)"
-      fi
-    fi
-    echo "  - process: $(to_module_path "$pf")"
-  else
-    if [[ $is_component == true ]]; then
-      echo "- **Main logic/feature included in that UI**: Reusable UI component (no process file found)"
-    else
-      echo "- **Main logic/feature included in that UI**: UI view (no process file found)"
+      echo "- **Where used:** $(to_module_path "$pf")"
     fi
   fi
 }

@@ -16,6 +16,7 @@ Produce a German variant of the product introduction that reads naturally to nat
 ## Input
 
 - `productModule` (required): The product module folder name (e.g. `mattermost-connector-product`). The skill reads `README.md` from this folder and writes `README_DE.md` to the same folder.
+ - Optional: `language` (default: `de`) - target language for translation. This skill is optimized for `de` and will prefer project-provided German CMS mappings when available.
 
 ## Output
 
@@ -43,6 +44,17 @@ Produce a German variant of the product introduction that reads naturally to nat
    - Image alt text (the `…` inside `![…]`).
    - Link display text (the `…` inside `[…](url)`).
 
+2.a **Prefer repository CMS translations when available (new):**
+   - Before running the general translation pass, check the product module and main module for CMS translation files (e.g., `cms/cms_de.yaml`, `cms_de.yaml` or similar paths documented in the repository).
+   - If a German CMS file is found, parse it and build a mapping of English display strings to German equivalents for the keys used in README content (for example keys under `Processes/Names`, dialog titles, labels used by demo workflows).
+   - CMS selection rule: When translating to German, prefer project-provided German CMS files from the most specific scope to the most general scope, for example: `<productModule>/cms/cms_de.yaml`, `<productModule>/cms_de.yaml`, `<mainModule>/cms/cms_de.yaml`, `<mainModule>/cms_de.yaml`, repository `cms/cms_de.yaml`, repository root `cms_de.yaml`.
+   - Replace occurrences of exact CMS-sourced English display strings in `README.md` (headings, workflow names, image alt texts, inline link text) with the German CMS equivalents prior to the prose translation step. Matches must be exact and respect surrounding punctuation/whitespace.
+   - After applying CMS-sourced substitutions, translate remaining prose to German. Do not double-translate strings that matched CMS mappings.
+   - Log or record substitutions so the translation step skips already-localized fragments (prevents double-translation or misinterpretation of placeholders).
+   - Only fall back to machine translation for phrases not covered by CMS mappings.
+
+   Rationale: project-provided CMS translations are authoritative and preserve domain-specific terminology and phrasing; preferring them avoids incorrect or inconsistent translations for UI labels and workflow titles.
+
 3. **Apply tone**:
    - Use `du`/`dein` (informal second person) throughout.
    - Keep sentences short and direct.
@@ -60,3 +72,22 @@ Produce a German variant of the product introduction that reads naturally to nat
 - `README_DE.md` exists at the correct path.
 - No inline code span, image path, URL, or fenced code block was altered.
 - The German text reads naturally with `du`/`dein` and short, benefit-led bullet points.
+
+## Invocation requirement
+
+When invoked by `generate-ivy-readme`, this skill must create or overwrite `<productModule>/README_DE.md` in the same run, and the result must be an actual German translation of `<productModule>/README.md`.
+
+Mandatory expectations:
+
+- `README_DE.md` must be predominantly German, not an unchanged English copy.
+- Preserve markdown structure, URLs, image paths, inline code, fenced code blocks, XML snippets, and template variables.
+- Translate headings, prose, bullet points, image alt text, and link labels into German.
+- Prefer repository-provided German CMS wording when available.
+- Keep technical identifiers and configuration keys unchanged.
+- Preserve section coverage: every section present in `README.md` must also be present in `README_DE.md`.
+
+Never:
+
+- Skip German generation when `README.md` was generated.
+- Copy `README.md` to `README_DE.md` without translation.
+- Hand-patch an outdated `README_DE.md`; regenerate it from the current `README.md`.

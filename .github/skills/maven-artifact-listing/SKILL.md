@@ -1,56 +1,52 @@
 ---
 name: maven-artifact-listing
-description: Extract maven artifacts from an Axon Ivy product.json file and generate a clean list with sequential numbering and Maven dependency XML snippets.
-argument-hint: '<product.json path> [output file]'
+description: Generate Maven artifact dependency blocks from product.json installers for README assembly.
+argument-hint: '<path-to-product.json>'
 user-invocable: true
 ---
 
 # Maven Artifact Listing
 
-Generate a clean Maven artifact listing from Axon Ivy product.json files with sequential numbering and raw XML dependency declarations.
+Extract Maven artifacts from `product.json` and return a JSON fragment for README assembly.
 
 ## Inputs
 
-- **Required:** Path to `product.json` file (e.g., `docuware-connector-product/product.json`)
-- **Optional:** Output file path. If omitted, output prints to stdout
+- `productJson` (required): path to product.json
 
-## Features
+## Behavior
 
-Extracts artifacts from all installer types:
-- **maven-dependency** – Dependencies array
-- **maven-import** – Projects array  
-- **maven-dropins** – Dropins array
+1. Read installers from `product.json` in this deterministic order:
+   1. `maven-dependency`
+   2. `maven-import` with `importInWorkspace != false`
+   3. `maven-import` with `importInWorkspace == false` (mark optional)
+2. Exclude artifacts ending with `test`.
+3. Render a numbered list of artifacts and XML dependency snippets.
+4. Use template variables or resolved values:
+   - Prefer resolved `artifactId` values from `product.json` when present (e.g., `idp-connector-demo`).
+   - Use template variables like `@artifact.id@` and `@version@` only when the source product.json uses placeholders or template variables instead of concrete artifact coordinates.
+5. Formatting rules:
+   - Keep optional marker as `*(optional)*` after artifact name.
+   - Do not append inline metadata tuples like `(version: ..., type: ...)` to list item titles.
+   - Keep `<type>...</type>` inside XML block only.
 
-For each artifact, generates:
-- **Sequential number with artifact id:** installer/internal types are not exposed in the listing
-- **Raw XML `<dependency>` declaration:** includes `groupId`, `artifactId` and `type` (versions are omitted)
+## Output
 
-Ordering and optional handling:
-- `maven-dependency` artifacts are listed first.
-- `maven-import` artifacts follow; projects with `importInWorkspace=false` are treated as optional and are listed after strictly imported projects.
+Return JSON fragment conforming to `references/output-format.md`:
 
-## Prerequisites
-
-- `jq` must be installed. The script exits with a clear error if it is not found.
-  Install: `apt install jq` (Linux/WSL) | `brew install jq` (macOS) | `choco install jq` (Windows)
-
-## Usage
-Before running, check the current OS. If on Windows, git bash or WSL is recommended to use for best compatibility.
-### Print to stdout
-```bash
-bash ./.github/skills/maven-artifact-listing/scripts/extract-maven-artifacts.sh {product json path}
+```json
+{
+  "section": "mavenArtifactSection",
+  "status": "success|partial|missing",
+  "content": "1. artifact-name\n\n```xml\n<dependency>..."
+}
 ```
 
-### Write to file
-```bash
-bash ./.github/skills/maven-artifact-listing/scripts/extract-maven-artifacts.sh {product json path} docs/maven-artifacts.md
+If no artifacts are found after a genuine extraction attempt, return:
+
+```json
+{
+  "section": "mavenArtifactSection",
+  "status": "missing",
+   "content": "- No information was delivered for this section."
+}
 ```
-
-## Output Format
-
-See [format reference](./references/output-format.md) for detailed output structure and examples.
-
-## Quality Criteria
-- No test artifacts are included (artifactIds ending with `test` are silently excluded).
-- If no artifacts are found, output is empty.
-- Installer types are not exposed in the listing.

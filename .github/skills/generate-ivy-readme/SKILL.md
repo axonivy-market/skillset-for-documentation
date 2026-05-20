@@ -8,96 +8,229 @@ Purpose
 Create a well-structured README for an Axon Ivy product following the schema in [format reference](./references/output-format.md).
 Content is derived from the main module(s) and demo module(s). The tone is friendly and professional, suitable for both technical and non-technical stakeholders.
 
+This skill generates production documentation for the detected product module:
+- `README.md` (English)
+- `README_DE.md` (German)
+
+The skill must always:
+* Dynamically detect the correct product module folder for output (see below).
+* Assemble `README.md` strictly from sub-skill outputs, following the modular extraction and assembly protocol.
+* Generate `README_DE.md` from the generated `README.md` via `translate-readme` in the same run.
+* Ensure the flow remains generic and reusable across Axon Ivy/Maven repository structures.
+
 Inputs
 ------
 - `workspacePath` (optional): path to repository root. Default: current workspace.
 - `module` (optional): explicit module name to treat as the main module.
+- `targetReadme` (optional): output path. Default: `<discovered-product-module>/README.md`.
+- `targetReadmeDe` (optional): output path. Default: `<discovered-product-module>/README_DE.md`.
+
+Autonomous execution policy (mandatory)
+--------------------------------------
+- Run fully non-interactive when invoked (no clarification prompts by default).
+- Always generate/update `README.md` in one pass, even if some extractors fail.
+- Always generate/update `README_DE.md` in the same pass.
+- Automatically invoke all required sub-skills (`ivy-readme-key-features`, `callable-sub-listing`, `form-components-listing`, etc.) without user confirmation.
+- If a listed sub-skill cannot be invoked as a callable unit by the runtime, **immediately** read that sub-skill's `SKILL.md` and execute its extraction logic directly against repository source files in the same turn — this is MANDATORY and takes priority over normalization.
+- If external script dependencies (e.g., `jq`) are unavailable, automatically switch to internal source parsing (read files directly using available tools) and continue.
+- **Only normalize a fragment to `missing` after** a genuine extraction attempt has been made and truly produced no content (e.g., directory does not exist, no matching process files found).
+- Normalizing a fragment to `missing` without first attempting extraction is a violation of this policy.
+- If `workspacePath`, `module`, `targetReadme`, or `targetReadmeDe` are omitted, derive them automatically and continue without asking the user.
 
 Configuration defaults
 ----------------------
 - `keyFeatureRange`: 3–8 bullets
 - `excludeSuffixes`: `test` or `webtest`
+- `missingSectionFallback`: `- No information was delivered for this section.`
+- `styleProfilePolicy`: `infer-from-repo`
+- `completenessGate`: `strict`
 
 Sub-skill protocol
 ------------------
 For every **APPLY SKILL: `<name>`** instruction in the steps below:
 1. Call the specified skill with the given arguments.
-2. Inject the stdout output **verbatim** at the named `{{placeholder}}` — do not reformat, summarize, or paraphrase.
+   - If the runtime cannot directly invoke the skill, immediately read that skill's `SKILL.md` and perform its documented extraction logic yourself in the same run.
+2. Expect output conforming to [output-format.md](./references/output-format.md) contract.
+3. Inject the stdout output **verbatim** at the named `{{placeholder}}` — do not reformat, summarize, or paraphrase.
+
+Execution guardrails (mandatory)
+--------------------------------
+1. Do not manually draft, rewrite, or "quick-fix" `README.md` content.
+2. `README.md` may be written only by the `ivy-readme-assemble` step using collected fragments.
+3. `README_DE.md` may be written only by `translate-readme` using the generated `README.md` as source.
+4. If any required sub-skill output is unavailable or malformed, create a normalized `missing` fragment (`section`, `content`, `status`) and continue assembly.
+5. Never patch an already generated `README.md` to compensate for missed sub-skills; re-run modular extraction + assembly flow.
+6. Never patch an already generated `README_DE.md` by hand; re-run translation from the current generated `README.md`.
+7. Do not return a blocked result if assembly can still run with normalized `missing` fragments.
+8. **Normalization enforcement**: `ivy-readme-key-features` MUST normalize broken list numbering in setup sections (e.g., repeated `1.` items must be renumbered to `1.`, `2.`, `3.`, `4.`, etc. at top level with proper sub-numbering `1.1.`, `1.2.` for nested items). If source has broken numbering, return `preserveMode=structured` in fragment.
+9. **Image handling**: Do NOT create standalone `## Images` section in final README. All images must be embedded within their related sections (Setup, Demo, etc.). If `productImageSection` fragment is `missing`, omit images entirely from output — do not insert fallback text.
+
 
 Output
 ------
-- **If `README.md` does not exist** in the product module: generate a full README and write it there.
-- **If `README.md` already exists**: replace all of section content if its outdated, but preserve the original wording as much as possible.
+- Primary output: `<detected-product-module>/README.md` (or `targetReadme` if provided).
+- Secondary output (default): `<detected-product-module>/README_DE.md` (or `targetReadmeDe` if provided).
+- The final README section order is strictly enforced by the README Template Format in output-format.md, not by fragment extraction order. All fragments are mapped to their correct section and assembled in this canonical order.
+- The product module is always resolved dynamically:
+   - After resolving the product module from pom.xml, check if it contains a `products/<product-name>/product.json` or `products/<product-name>/README.md` (deepest product folder wins).
+   - If found, treat that as the main product module and create `README.md` there.
+   - If not, fallback to the root product module folder.
+   - If `targetReadme` is omitted, always write `<resolved-product-module>/README.md` without asking the user.
+   - If `targetReadmeDe` is omitted, always write `<resolved-product-module>/README_DE.md` without asking the user.
+- Output content must be assembled strictly from sub-skill results.
 
 Behavior / Steps
 ----------------
-1. Read the root `pom.xml`. If it declares `<modules>`, enumerate them.
+1. Resolve defaults:
+   - APPLY SKILL `ivy-readme-discover-modules` to resolve `productModule` from root `pom.xml`.
+   - If `module` is omitted, use discovered `mainModule`.
+   - `targetReadme = <productModule>/README.md` when omitted.
+   - `targetReadmeDe = <productModule>/README_DE.md` when omitted.
 
-2. Classify each module by its artifactId or folder name suffix:
-   - `-demo` → demo module(s) — context used in `## Demo` only
-   - `test` → exclude from README
-   - `-product` → product module (target location for `README.md` and images)
-   - others → candidate main module(s)
+1.1 Resolve generic Axon Ivy/Maven profile:
+   - Read `repoProfile` from `ivy-readme-discover-modules` output.
+   - If no explicit multi-module structure exists, treat repository root as both main and product module.
+   - Keep the same assembly protocol for single-module and multi-module Axon Ivy/Maven projects.
 
-3. Pick the main module: prefer a module that is not `-demo`, `-test`, or `-product`. If the only non-test module is a `-demo` module, treat it as the main module (note in the README that callable subs and form components may carry a demo context).
+1.2 Resolve style profile:
+   - Infer `styleProfile` from existing repository docs if available (ordered list style, OpenAPI display style, callable-sub layout).
+   - Apply inferred style profile consistently during assembly.
 
-4. **DISCOVERY PHASE** — execute sub-tasks 4a–4f sequentially and collect all outputs before assembling.
+2. Modular rebuild path (default and required):
+   - APPLY SKILL `ivy-readme-discover-modules`
+   - APPLY SKILL `ivy-readme-key-features`
+   - APPLY SKILL `callable-sub-listing`
+   - APPLY SKILL `form-components-listing`
+   - APPLY SKILL `ivy-readme-demo-workflows`
+   - APPLY SKILL `maven-artifact-listing`
+   - APPLY SKILL `product-image-summary`
+   - APPLY SKILL `ivy-readme-assemble`
 
-   | Step | Input source | Action | Placeholder |
-   |------|-------------|--------|-------------|
-   | 4a | Main module `src/`, `config/roles.xml`, `config/rest-clients.yaml` | Inspect (details below) | Key features, `{{openApiSection}}` |
-   | 4b | Main module `processes/*.p.json` | APPLY SKILL `callable-sub-listing` | `{{callableSubSection}}` |
-   | 4c | Main module `<main-module>/src_hd` | APPLY SKILL `form-components-listing` | `{{formComponentSection}}` |
-   | 4d | Demo module(s) processes | Inspect (details below) | `## Demo` content |
-   | 4e | Product module `product.json` | APPLY SKILL `maven-artifact-listing` | `{{mavenArtifactSection}}` |
-   | 4f | Product module directory name | APPLY SKILL `product-image-summary` | Image catalog (used in step 6) |
+2.1 Mandatory fragment mapping (must be present before assembly):
+   - `productDescriptionSection` <- from `ivy-readme-key-features`
+   - `keyFeatures` <- from `ivy-readme-key-features`
+   - `demoIntroSection` <- from `ivy-readme-demo-workflows` (with external links) OR explicit fallback
+   - `demoWorkflows` <- from `ivy-readme-demo-workflows`
+   - `rolesSection` <- from `ivy-readme-key-features` (extracted from config/roles.xml)
+   - `setupSection` <- from `ivy-readme-key-features` (setup steps only, no roles/openapi inline)
+   - `variablesSection` <- from `ivy-readme-key-features`
+   - `openApiSection` <- from `ivy-readme-key-features` (will be placed in Setup by assembler, not separate section)
+   - `optionalAuthSection` <- from `ivy-readme-key-features` when present
+   - `callableSubSection` <- from `callable-sub-listing`
+   - `formComponentSection` <- from `form-components-listing`
+   - `mavenArtifactSection` <- from `maven-artifact-listing`
 
-   **4a — Key features & configuration:**
-   - Derive 3–8 concise, marketing-oriented Key features bullets from public API, services, and exported classes in `src/`. Main module only — no demo-only artifacts.
-   - From `config/roles.xml`: note any roles other than "Everybody" for the `## Setup` section. If "Everybody" is the only role, omit the roles section entirely.
-   - From `config/rest-clients.yaml`: if `OpenAPI.SpecUrl` is an public URL (`http://` or `https://`), insert its markdown snippet (`![Rest Client Name](URL)`) (e.g. `![Petstore](https://petstore.swagger.io/v2/swagger.json)`) in `{{openApiSection}}`. If no public OpenAPI specs are found, mention that there are no available public specs delivered.
+2.2 Pre-assembly validation gate (required):
+   - Validate all mandatory fragment mappings exist and are structurally valid (`section`, `content`, `status`).
+   - If validation fails, normalize invalid/missing entries into `missing` fragments and continue.
+   - Always create or update `README.md` when assembly is available.
 
-   **4d — Demo workflows:**
-      **Tone:** Friendly and professional; write for non-technical stakeholders. Avoid jargon — focus on value, use cases, and how to reproduce the demo.
+2.3 Dependency fallback (required):
+   - If a sub-skill script cannot run due to missing tooling (e.g., `jq`) or module path mismatch, parse repository source files directly and produce equivalent fragment output.
+   - Keep the same fragment contract and section mapping; do not stop the flow.
+   - Continue to `ivy-readme-assemble` with available + normalized fragments in the same run.
 
-      **Writing each workflow:**
-      Translate each demo process into separated step-by-step guideline. Adapt the number of steps freely to fit the actual workflow. Each step must focus on the user action or observable outcome — not internal technical details. Cover:
-      - How to launch the process (use the friendly name from the `RequestStart` element, not the internal file name).
-      - What the user sees at each stage (general view of dialogs, forms, displayed information).
-      - What the user can do at each stage (fill in fields, trigger actions, view results).
-      
-      If a Docker image or example deployment is available, mention it in the last step.
-      > Docker/example deployments belong in `## Demo` only — never in Key features.
+3. Rebuild output rules:
+   - Assemble using schema order from `output-format.md`.
+   - Do not prepend, parse, or copy any product description block from README.md.
+   - Inject sub-skill outputs verbatim using the contract defined in `output-format.md`.
+   - If a Demo workflows section is present in docs or can be inferred from demo process files, inject it as a subheading under Demo.
+   - Include a Demo intro/body paragraph before Demo workflows when available (`demoIntroSection`).
+   - Keep variables under Setup as a `### Variables` subsection by default; do not create a standalone `## Variables` section unless style profile explicitly requires it.
+   - If `variablesSection` is genuinely missing after extraction, render exactly `- No variables were detected.` under `### Variables` (do not synthesize fake YAML keys).
+   - Support heading aliases from style profile (e.g., `Connector Processes` <-> `Connector Processes`, `Form Components` <-> `Form Components`) without dropping content.
+   - Do not drop sections when a fragment is empty. Insert `missingSectionFallback` under that heading.
+   - Apply assembler fallback rules: keep heading + inject placeholder if status is `missing` or content is empty.
+   - Enforce coverage gate: when fragment declares `requiredSubsections`, missing subsections must be reported and rendered with explicit placeholders.
+   - Preserve @variables.yaml@ literal block exactly (including surrounding line breaks).
+   - Always render `## Components` as parent heading and place `### Connector Processes`, `### Form Components`, and `### Maven artifacts` beneath it.
+   - Never render `## Connector Processes` as a top-level section.
+   - **CRITICAL**: Remove any footer metadata, generation timestamps, skill attribution comments, or output contract references from final output.
+   - Only footer-free content appears in README.md.
+   - Do not add helper sections such as `## Notes`, `## Generation Info`, or other non-template metadata headings.
 
-      **Merging with an existing `## Demo` section:**
-      When a `## Demo` section already exists, compare it against the freshly analyzed demo processes and apply:
-      - **Add** a new workflow for any `RequestStart` process present in the demo module but not yet documented.
-      - **Remove** any workflow for a process no longer found in the demo module (deleted or renamed).
-      - **Update** any workflow whose description no longer matches the current process flow; preserve accurate wording and rewrite only what has changed.
+4. Sub-skill quality criteria (enforced):
+   - **ivy-readme-key-features**: Extract product intro with image + external links, benefit-driven key features (6 items), roles from config/roles.xml, complete Setup section with steps, full variables YAML with comments, OpenAPI spec info (goes INTO Setup), and optional auth/runtime sections exactly as documented.
+   - **ivy-readme-key-features**: Do not synthesize `### Azure App` heading unless that heading exists in source docs. Keep setup headings source-driven.
+   - **ivy-readme-demo-workflows**: Extract demo intro paragraph + external market links BEFORE workflow steps, include module grouping with #### headers, use friendly non-technical step-by-step language, and never output empty module headings.
+   - **ivy-readme-demo-workflows**: Prefer `https://market.axonivy.com/...` links over local relative links when both are available in sources.
+   - **form-components-listing**: Extract component parameters from actual `.d.json` dataclass files (source-of-truth, no fabricated attributes)
+   - **callable-sub-listing**: Include exact signatures with full parameter names and types (e.g., `writeMail(msgraph.connector.NewMail mail) -> ...`)
+   - **maven-artifact-listing**: Use template variables (@artifact.id@, @version@) instead of resolved values
+   - All skills must preserve inline comments, documentation, and image references from sources
 
-   **4f — Image catalog:**
-   - Skip silently if no `images/` directory exists in the product module.
-   - Image paths from the catalog use the form `<product-module>/images/…`. Strip the leading `<product-module>/` prefix so all paths start with `images/` before using them.
+5. Optional quality check:
+   - Report missing headings and missing media references (`images/...`) as coverage gaps.
+   - Report missing required subsections declared by fragments as fidelity gaps.
+   - Report style drifts from inferred style profile (list numbering, OpenAPI presentation, callable-sub formatting).
+   - The check should focus on section completeness and section placement, not exact wording equality.
 
-5. Assemble the README following the schema in `output-format.md`:
-   - All of the extracted content from Apply skill in step 4 must be injected verbatim without reformatting or summarization. Do not rewrite or paraphrase the output from the sub-skills; simply place it in the correct section as-is.
-   -  For each image from `product-image-summary`: use its `> Suggested readme placement` hint to place it in the correct section, then insert its markdown snippet (`![alt](images/…)`) immediately after the step/paragraph/content it illustrates.
-   -  Do not create an isolated image section.
-   - The schema of readme should strictly follow the order and structure defined in `output-format.md`. Do not rearrange sections or headings.
-   - If there no relevant content for a section (for example, no OpenAPI specs or no roles), do not omit the section entirely. Provide the section heading and a single bullet noting the absence of that content (for example, "No callable sub delivered by this extension." or "No public OpenAPI specs are available for this product"). 
-   Instead, include the section heading and a single bullet noting the absence of that content (for example, "This product does not require any special roles" or "No public OpenAPI specs are available for this product").
-   - Replace `{{variableSection}}` with this exact fenced block (preserve the backticks literally in the output file):
+6. Translation:
+   - APPLY SKILL `translate-readme` to generate `README_DE.md` from generated `README.md`.
+   - **MANDATORY**: If the runtime cannot invoke `translate-readme` as a callable unit:
+      1. Read `translate-readme` SKILL.md to obtain its translation logic.
+      2. Execute the logic directly: parse README.md line-by-line (preserve URLs/code blocks, translate prose/headings).
+      3. Write README_DE.md.
+      4. Validate all sections from README.md are present in README_DE.md.
+   Implementation for AI orchestration (mandatory)
+------------------------------------------------
+**CRITICAL: When invoked, AI MUST execute the entire flow in ONE PASS without stopping between steps:**
 
-```
-@variables.yaml@
-```
+1. **Parallel sub-skill execution (batch 1 - independent):**
+   - First invoke `ivy-readme-discover-modules` to resolve `mainModule`, `demoModules`, and `productModule`.
+   - Then invoke in parallel: `ivy-readme-key-features`, `callable-sub-listing`, `form-components-listing`, `ivy-readme-demo-workflows`, `maven-artifact-listing`, `product-image-summary` using the resolved module paths.
+   - **MANDATORY PRE-EXECUTION GATE**: For EACH sub-skill listed above, before producing any fragment output:
+     1. Read that sub-skill's `SKILL.md` file to obtain its extraction logic.
+     2. Execute the documented extraction logic directly against the repository source files (process JSON files, config YAML, src_hd, product.json, setup docs, etc.).
+     3. Only after a genuine extraction attempt may a fragment be marked as `missing`.
+     4. A fragment MUST NOT be normalized to `missing` solely because the sub-skill cannot be invoked as a callable tool. The extraction logic from SKILL.md MUST be executed manually instead.
+   - Collect all stdout outputs in a single collection.
+   - Do NOT wait for user feedback or confirmation between invocations.
+   - Do NOT present an interim plan/result to the user before assembly is complete.
 
-7. **APPLY SKILL: `translate-readme`** — pass `productModule` set to the product module folder name.
+2. **Fragment collection (batch 2 - sequential post-processing):**
+   - Parse all sub-skill outputs into fragment objects mapping to mandatory fragment names (see section 2.1).
+   - For any sub-skill whose extraction logic was executed and genuinely produced no content (e.g., no `src_hd` directory, no matching process files), auto-normalize to `{ status: "missing", section: "...", content: "- No information was delivered for this section." }`.
+   - **FORBIDDEN**: Normalizing a fragment to `missing` without first reading the sub-skill SKILL.md and attempting source-file extraction. This is a violation equivalent to skipping the sub-skill entirely.
+   - Build complete fragment map WITHOUT user interaction.
+   - Populate omitted optional fragments (`optionalAuthSection`, `openApiSection`, image fragment) with normalized `missing` entries instead of asking whether they should be skipped.
+
+3. **Assembly (batch 3 - single execution):**
+   - Invoke `ivy-readme-assemble` ONCE with complete fragment map.
+   - Assemble writes `README.md` directly to disk.
+   - No human review or patching after assembly.
+
+4. **Translation (batch 4 - single execution):**
+   - Invoke `translate-readme` ONCE to create/update `README_DE.md` from the generated `README.md`.
+   - Do not ask for confirmation.
+
+5. **Completion:**
+   - Report which fragments were found vs normalized to `missing`.
+   - Report output path of generated `README.md`.
+   - Report output path of generated `README_DE.md`.
+   - Report any assembly warnings/gaps (missing subsections, coverage gaps).
+
+**Enforcement rules:**
+- If step 1 sub-skills are split across multiple AI responses → VIOLATION (must be single batch).
+- If user confirmation is requested between steps 1-3 → VIOLATION (autonomous policy violated).
+- If `README.md` is hand-edited or patched after assembly → VIOLATION (assembly-only rule).
+- If `README_DE.md` is hand-edited or patched instead of regenerated via `translate-readme` → VIOLATION.
+- If `README.md` is not written at all → VIOLATION (must always generate with fragments, even `missing` ones).
+- If `README_DE.md` is not written at all → VIOLATION.
+- If the runtime cannot invoke a sub-skill and the AI does not immediately execute that sub-skill's documented logic itself → VIOLATION.
+- If ANY fragment is normalized to `missing` without a prior read of that sub-skill's SKILL.md and a genuine attempt to extract from repository source files → VIOLATION (extraction-before-normalization rule).
+- If the AI produces a README where ALL or MOST sections contain the fallback placeholder, and the repository contains discoverable source files (process JSON, variables.yaml, setup docs, product.json) → VIOLATION (silent skip of extraction step).
 
 Invariants
 ----------
-- Section and heading order must follow `output-format.md` exactly.
-- Image paths normalized to `images/…` (relative to product module) before insertion.
-- A translated file (`README_DE.md` by default) must exist after the skill completes.
-- Key features: 3–8 bullets, marketing language, main module only — no technical jargon.
-- Order of sections and headings must strictly follow the schema in `output-format.md`.Do not rearrange or omit sections based on content presence; instead, include all sections and note when specific content is absent.
+- Default file created/updated is `<discovered-product-module>/README.md`.
+- Default translated file created/updated is `<discovered-product-module>/README_DE.md`.
+- Generation must be performed via sub-skills and assembly.
+- No cache usage.
+- Big flow must be split into small independent skills.
+- The flow must be generic for multi-module and single-module Axon Ivy/Maven repositories.
+- Empty or missing fragment outputs must still produce visible section placeholders in the assembled README.
+- Generated `README.md` content is always independent from any pre-existing `README.md` content.
+- Generated `README_DE.md` must come from translating the generated `README.md` in the same run.
+- If modular extraction is incomplete, generation still writes `README.md` using placeholder-backed fragments and reports gaps.
+- External image URLs found in source README files are valid image evidence and may be embedded without local file copies.

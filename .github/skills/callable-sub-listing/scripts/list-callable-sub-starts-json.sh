@@ -48,7 +48,7 @@ for file in "${files[@]}"; do
         file: $file,
         starts: [
           .elements[]?
-          | select(.type == "CallSubStart" and (((.tags // []) | map(if type == "string" then ascii_downcase else "" end)) | index("connector")))
+          | select(.type == "CallSubStart")
           | {
               id: (.id // null),
               name: (.name // null),

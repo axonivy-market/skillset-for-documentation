@@ -49,19 +49,10 @@ fi
       continue
     fi
 
-    # Count CallSubStart elements where tags contain "connector".
-    # Accept tags from either `.tags` or `.config.tags`, and handle string or array values.
-    start_count=$(jq '[.elements[]? |
-      select(.type == "CallSubStart" and (
-        ((.tags // .config.tags // [])
-          | (if type == "array" then . else [.] end)
-          | map(tostring)
-          | map(gsub("^\\s+|\\s+$"; "") | ascii_downcase)
-          | index("connector")
-        )
-      ))] | length' "$file")
+    # Count all CallSubStart elements (not tag-filtered per SKILL.md).
+    start_count=$(jq '[.elements[]? | select(.type == "CallSubStart")] | length' "$file")
 
-    # If no matching CallSubStart entries in this file, skip printing the file header.
+    # If no CallSubStart entries in this file, skip printing the file header.
     if [[ "$start_count" -eq 0 ]]; then
       continue
     fi
@@ -72,16 +63,8 @@ fi
     echo "#### $file"
 
     jq -r '
-      def has_connector:
-        ((.tags // .config.tags // [])
-          | (if type == "array" then . else [.] end)
-          | map(tostring)
-          | map(gsub("^\\s+|\\s+$"; "") | ascii_downcase)
-          | index("connector")
-        );
-
       .elements[]?
-      | select(.type == "CallSubStart" and has_connector)
+      | select(.type == "CallSubStart")
       | "- Signature: " + (.config.callSignature // .config.signature // "") + "\n"
       + "  Input: "
       + (if (.config.input // .config.parameter) then

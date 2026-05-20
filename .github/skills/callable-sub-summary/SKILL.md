@@ -7,10 +7,11 @@ user-invocable: true
 
 # Callable Sub Summary
 
+
 Generate a concise, marketing-oriented summary of connector capabilities from process files where:
 - process kind is CALLABLE_SUB
 - start element type is CallSubStart
-- tags contains connector
+- tags contain 'connector'
 
 The summary must be grouped by what a workflow team can actually do with the callable subs.
 
@@ -24,7 +25,7 @@ Before running, check the current OS. If on Windows, git bash or WSL is recommen
    - bash ./.github/skills/callable-sub-summary/scripts/list-callable-sub-starts-json.sh
 2. For file output, run:
    - bash ./.github/skills/callable-sub-summary/scripts/list-callable-sub-starts-json.sh './**/*.p.json' docs/callable-sub-capabilities-summary.txt
-3. Inspect the generated callable-sub capability output and summarize it in marketing language.
+3. Inspect the generated callable-sub capability output and summarize it in clear, professional marketing language.
 
 ## Output Rules
 
