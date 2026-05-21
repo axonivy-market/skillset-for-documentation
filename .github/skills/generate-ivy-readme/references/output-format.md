@@ -71,7 +71,7 @@ When the assembler receives a fragment:
 The generated README should follow this format:
 
 ```markdown
-# Product name
+# Product Name
 
 Product description: a simple, non-technical summary of the product's value proposition and capabilities. This should be accessible to non-technical stakeholders and marketing-oriented, avoiding technical jargon.
 
