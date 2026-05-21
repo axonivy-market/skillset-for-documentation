@@ -71,7 +71,7 @@ When the assembler receives a fragment:
 The generated README should follow this format:
 
 ```markdown
-# Product Name
+# Product name
 
 Product description: a simple, non-technical summary of the product's value proposition and capabilities. This should be accessible to non-technical stakeholders and marketing-oriented, avoiding technical jargon.
 
@@ -121,7 +121,7 @@ If optional auth/runtime sections are documented (e.g., JWT, service account, OA
 
 {{callableSubSection}}
 
-### Form Components
+### Form components
 
 {{formComponentSection}}
 
