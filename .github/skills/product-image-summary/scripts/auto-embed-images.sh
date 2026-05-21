@@ -176,7 +176,7 @@ insert_after_line() {
     { print }
     NR == target {
       print ""
-      print "   " snippet
+      print snippet
       print ""
     }
   ' "$README" > "$README".tmp && mv "$README".tmp "$README"
@@ -291,7 +291,7 @@ insert_snippet() {
       # insert before that heading
       awk -v snippet="$snippet" '
         BEGIN{inserted=0}
-        /^###[[:space:]]+Demo workflows/ && !inserted { print ""; print "   " snippet; print ""; inserted=1 }
+        /^###[[:space:]]+Demo workflows/ && !inserted { print ""; print snippet; print ""; inserted=1 }
         { print }
       ' "$README" > "$README".tmp && mv "$README".tmp "$README"
       return 0
@@ -301,7 +301,7 @@ insert_snippet() {
         BEGIN{inDemo=0; printed=0}
         /^##[[:space:]]+Demo/ { print; inDemo=1; next }
         { print }
-        END{ if (inDemo && !printed) { print ""; print "   " snippet; print "" } }
+        END{ if (inDemo && !printed) { print ""; print snippet; print "" } }
       ' "$README" > "$README".tmp && mv "$README".tmp "$README"
     fi
   fi

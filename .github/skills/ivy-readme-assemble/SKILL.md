@@ -58,7 +58,7 @@ Assemble README from fragment inputs without recomputation.
          3. Within that workflow block, find step 2 line (e.g., "2. Upload or select a document...")
          4. Insert image after step 2:
             - Add blank line after step 2
-            - Insert image snippet: "   ![Alt Text](images/....png)"
+            - Insert image snippet: "![Alt Text](images/....png)"
             - Add blank line after image
          5. Adjust indentation to match workflow step indentation (3 spaces)
        
@@ -77,7 +77,7 @@ Assemble README from fragment inputs without recomputation.
        1. Launch the Document Splitting demo from the demo menu.
        2. Upload or select a document from the file browser.
        
-          ![Document Splitting Dialog](images/DocumentSplitting.png)
+       ![Document Splitting Dialog](images/DocumentSplitting.png)
        
        3. Configure splitting parameters (page range, orientation).
        4. Review the split result and download the files.
@@ -106,7 +106,7 @@ Assemble README from fragment inputs without recomputation.
        3. Configure validation rules and thresholds.
        4. Execute validation and review results.
        
-          ![Validation Results](images/DataValidation.png)
+       ![Validation Results](images/DataValidation.png)
        ```
        
        **Type 3: `intro`**
@@ -215,15 +215,15 @@ Assemble README from fragment inputs without recomputation.
        
        **Indentation Rules:**
        ```
-       - Workflow step line:      "1. ..." (0 indent)
-       - Image after step:        "   ![...]()" (3 spaces indent)
-       - Blank line:              "" (empty)
+      - Workflow step line:      "1. ..." (0 indent)
+      - Image after step:        "![...]()" (no forced indent)
+      - Blank line:              "" (empty)
        
        Example indentation:
        1. Step one
        2. Step two
        
-          ![image](path)
+       ![image](path)
        
        3. Step three
        ```
@@ -257,7 +257,7 @@ Assemble README from fragment inputs without recomputation.
        1. Launch the Document Splitting demo
        2. Upload a document or select from library
        
-          ![Document Splitting Dialog](images/DocumentSplitting.png)
+         ![Document Splitting Dialog](images/DocumentSplitting.png)
        
        3. Configure splitting parameters
        4. Review and download results

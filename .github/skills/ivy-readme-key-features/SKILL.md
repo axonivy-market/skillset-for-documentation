@@ -133,6 +133,16 @@ Generate product description, key-feature bullets, demo intro, and complete setu
      - Indent images to match parent step indentation level (same as parent step)
      - Add blank line BEFORE image and blank line AFTER image block for readability
      - Preserve image markdown exactly: `![alt-text](path/to/image.png)`
+     - **Image path rewriting (mandatory when source and target are in different directories):**
+       - When extracting content from a source file (e.g., `setup.md`) that lives in a different directory than the target README, all relative image paths in that content MUST be rewritten to remain valid from the target README location.
+       - Algorithm:
+         1. Determine `sourceDir` = directory of the source file (e.g., `msgraph-connector-product/`)
+         2. Determine `targetDir` = directory of the target README (e.g., `msgraph-connector-product/products/msgraph-connector/`)
+         3. Compute `relPrefix` = relative path from `targetDir` back to `sourceDir` using standard `../` traversal (e.g., `../../`)
+         4. For every image reference `![alt](path)` in the extracted content where `path` does NOT start with `http`, `/`, or `../` pointing outside `sourceDir`: prepend `relPrefix` to `path`.
+         5. Verify the resulting path is resolvable from `targetDir`; if not, log a warning and keep original.
+       - Example: source at `product/setup.md` uses `doc/img/foo.png`; target README at `product/products/connector/README.md` → rewrite to `../../doc/img/foo.png`.
+       - This rule applies to all content sources: `setup.md`, module README, `doc/README.md`, and any inline doc fragment.
      - Example:
        ```
        3. Navigate to Settings.

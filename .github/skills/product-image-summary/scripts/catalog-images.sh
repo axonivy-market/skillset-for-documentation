@@ -10,11 +10,16 @@ if [[ -z "$DEMO_MODULE" && "$PROJECT_NAME" == *-product ]]; then
     DEMO_MODULE="${PROJECT_NAME%-product}-demo"
 fi
 
-# Resolve images directory: {project-name}/images or {project-name} if no images subdir
+# Resolve images directory: checks in order:
+#   1. {name}/images/          (standard convention)
+#   2. {name}/doc/img/         (alternative convention used by some connectors)
+#   3. {name}/                 (bare module directory fallback)
 resolve_images_dir() {
     local name="$1"
     if [[ -d "${name}/images" ]]; then
         echo "${name}/images"
+    elif [[ -d "${name}/doc/img" ]]; then
+        echo "${name}/doc/img"
     elif [[ -d "${name}" ]]; then
         echo "${name}"
     else
