@@ -141,7 +141,7 @@ Behavior / Steps
    - Do not drop sections when a fragment is empty. Insert `missingSectionFallback` under that heading.
    - Apply assembler fallback rules: keep heading + inject placeholder if status is `missing` or content is empty.
    - Enforce coverage gate: when fragment declares `requiredSubsections`, missing subsections must be reported and rendered with explicit placeholders.
-   - Preserve @variables.yaml@ literal block exactly (including surrounding line breaks).
+   - Preserve the exact fenced block containing @variables.yaml@ (including surrounding line breaks and backticks).
    - Always render `## Components` as parent heading and place `### Callable Subprocesses`, `### Dialog Components`, `### Web Services`, and `### Maven Artifacts` beneath it.
    - Never render `## Callable Subprocesses` as a top-level section.
    - **CRITICAL**: Remove any footer metadata, generation timestamps, skill attribution comments, or output contract references from final output.

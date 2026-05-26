@@ -1,6 +1,6 @@
 ---
 name: form-components-listing
-description: Use when asked for a detailed summary, listing, or overview of form components or form dialogs in the project.
+description: Use when asked for a detailed summary, listing, or overview of form components in the project.
 argument-hint: '[optional: path to main module src_hd directory, e.g. my-connector/src_hd]'
 user-invocable: true
 ---
@@ -8,7 +8,7 @@ user-invocable: true
 
 # Form Components Summary
 
-Generate a concise, marketing-oriented summary of available form dialog and form components from main module(s) in an Axon Ivy project.
+Generate a concise, marketing-oriented summary of available form components from main module(s) in an Axon Ivy project.
 Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and clear.
 
 ## Inputs
@@ -98,12 +98,14 @@ Before running, check the current OS. If on Windows, git bash or WSL is recommen
 bash ./.github/skills/form-components-listing/scripts/form-components-listing.sh '<src_hd path>'
 ```
 
+You may also pass a parent folder that contains multiple modules with `src_hd`.
+
 ### Write to file
 ```bash
 bash ./.github/skills/form-components-listing/scripts/form-components-listing.sh '<src_hd path>' 'docs/form-components.md'
 ```
 
-The scanner is module-agnostic; pass any `src_hd` directory or top-level UI folder.
+The scanner is module-agnostic; pass a module folder, a `src_hd` folder, or a parent folder that contains modules with `src_hd`.
 
 ## Output
 - The skill returns a JSON fragment conforming to [output-format.md](../references/output-format.md), with markdown stored in `content`

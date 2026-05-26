@@ -185,6 +185,10 @@ Generate product description, key-feature bullets, demo intro, and complete setu
    - Keep block formatting and indentation stable (verbatim where possible)
    - If missing, set fragment status to `missing` with content exactly: `- No variables were detected.`
    - Do not synthesize fake/default YAML keys when the source file is missing.
+   - Replace `{{variableSection}}` with this exact fenced block (preserve the backticks literally in the output file):
+```
+@variables.yaml@
+```
 
    3.1 **OpenAPI Section**:
       - Extract OpenAPI endpoint/spec details from `config/rest-clients.yaml` and related docs.
@@ -202,7 +206,7 @@ Generate product description, key-feature bullets, demo intro, and complete setu
     - Preserve nested lists and code blocks exactly when extracted from docs
    - If missing, synthesize a placeholder.
 
-5. Maven Artifacts: Extract from main module pom.xml with groupId, artifactId, descriptions. Format as numbered list with XML dependency blocks and include only `groupId`, `artifactId`, and `<type>`; do NOT include a `<version>` element in the README (the build/pipeline should resolve versions). Use `*(optional)*` marker for optional artifacts and set status:missing if none found.
+5. Maven Artifacts: Extract artifact coordinates from `product.json`, then order the rendered list by the root `pom.xml` module sequence. Format as numbered list with XML dependency blocks and include only `groupId`, `artifactId`, and `<type>`; do NOT include a `<version>` element in the README (the build/pipeline should resolve versions). Use `*(optional)*` marker for optional artifacts and set status:missing if none found.
 
 6. Return JSON fragments conforming to [output-format.md](references/output-format.md)
 

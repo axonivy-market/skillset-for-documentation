@@ -300,7 +300,7 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
    - **Variables missing rule**: Under `### Variables`, if `variablesSection` is missing/empty, inject exactly `- No variables were detected.`
 3. Never omit a section heading from the template. The assembler MUST always render heading `### Demo Workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
 4. Remove unnecessary HTML comments (e.g., `<!-- status: ... -->`) from fragment content before injection. Never include timestamps, skill names, or other metadata in the final output.
-5. Preserve exact variable block `@variables.yaml@` if present.
+5. Preserve the exact fenced variable block containing `@variables.yaml@` if present.
 6. Apply `styleProfile` when present to keep repository-native markdown conventions (ordered list style, OpenAPI style, callable-sub layout).
 6.1 Prefer repository-native section placement when style profile indicates it (e.g., variables inside setup).
 7. Write assembled result to target path.

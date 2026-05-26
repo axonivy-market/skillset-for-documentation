@@ -85,7 +85,6 @@ Check the demo implementations we have prepared for the various services from Mi
 
 **Example output:**
 ```markdown
-- **Roles:** `Everybody` (configured in `config/roles.xml`).
 
 - **OpenAPI:** the connector exposes an OpenAPI specification. External spec URL (from `config/rest-clients.yaml`):
 
@@ -96,8 +95,8 @@ Check the demo implementations we have prepared for the various services from Mi
 ```
 @variables.yaml@
 ```
-```
 
+```
 **Required subsections:** Roles, OpenAPI, Configuration variables
 
 **Status:** `success` if all subsections found, `partial` if some missing.
@@ -105,9 +104,6 @@ Check the demo implementations we have prepared for the various services from Mi
 **Preserve mode:** `verbatim` to keep exact formatting from source README.md
 
 ### variablesSection
-
-**Sources:**
-1. Complete `config/variables.yaml` with all comments and structure preserved
 
 **Example output:**
 ```yaml

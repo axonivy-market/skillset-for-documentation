@@ -97,9 +97,7 @@ Technical setup instructions derived from the main module's configuration defini
 
 ### Variables
 
-Variable configuration block extracted from `config/variables.yaml` with full YAML structure and detailed inline comments explaining each field.
-
-Include a NOTE block if present in source (e.g., version migration notes).
+{{variableSection}}
 
 If no variables are found after a genuine extraction attempt, render:
 
@@ -136,7 +134,7 @@ If optional auth/runtime sections are documented (e.g., JWT, service account, OA
 
 **Template Rules:**
 - Preserve exact product description and key features from source
-- Include @variables.yaml@ literal block if found in variables section
+- Include the exact fenced block containing @variables.yaml@ if found in variables section
 - Never include footer metadata or generation timestamps
 - All sections are required; use fallback content if missing
 - Prefer repository-native style profile when detected (list numbering, OpenAPI section style, callable-sub formatting)
