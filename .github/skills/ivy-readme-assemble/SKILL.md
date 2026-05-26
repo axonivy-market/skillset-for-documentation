@@ -307,7 +307,7 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
 ## Fragment validation rules
 
 - **Mandatory fragments**: productDescriptionSection, keyFeatures, demoIntroSection, demoWorkflows, rolesSection, openApiSection, setupSection, variablesSection, callableSubSection, formComponentSection, mavenArtifactSection
-- **Optional fragments**: optionalAuthSection, productImageSection
+- **Optional fragments**: productImageSection
 - Treat content as pseudo-filled if it only states availability (e.g., "present in file", "see process file") without extracted details required by that section.
 - Pseudo-filled content must be normalized to `missing` and rendered with explicit fallback text.
 - Normalization must preserve section headings and template order.
@@ -321,7 +321,7 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
       1. Product description (productDescriptionSection)
       2. Key features (keyFeatures)
       3. Demo (demoIntroSection, then heading ### Demo Workflows, then demoWorkflows)
-      4. Setup (rolesSection, openApiSection, variablesSection, optionalAuthSection)
+      4. Setup (rolesSection, openApiSection, variablesSection)
       5. Components (`### Callable Subprocesses` from callableSubSection, `### Dialog Components` from formComponentSection, `### Web Services` from openApiSection, `### Maven Artifacts` from mavenArtifactSection)
    - If any fragment is missing, inject the fallback placeholder at the correct position.
 - Must keep all template headings even when fragment data is missing.

@@ -37,3 +37,4 @@ The maven artifact listing generates a sequential numbered list with artifact de
 - If no artifacts are found, output is empty
 - Artifacts whose `artifactId` ends with `test` are silently excluded from the output
 - `maven-dropins` artifacts are listed after optional imports, also without exposing the installer type
+- Follow the sequence of maven listing

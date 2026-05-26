@@ -6,7 +6,7 @@ Each sub-skill must return a JSON object conforming to this contract:
 
 ```json
 {
-  "section": "string (e.g., productDescriptionSection|keyFeatures|demoIntroSection|setupSection|variablesSection|openApiSection|optionalAuthSection)",
+  "section": "string (e.g., productDescriptionSection|keyFeatures|demoIntroSection|setupSection|variablesSection|openApiSection)",
   "content": "string (markdown)",
   "status": "success|partial|missing",
   "preserveMode": "verbatim|structured",
@@ -141,13 +141,6 @@ https://graphexplorerapi.azurewebsites.net/openapi?tags=me.user,me.calendar,user
 ```
 
 **Status:** `success` if URL found, `missing` otherwise.
-
-### optionalAuthSection
-
-**Sources:**
-1. Authentication/Runtime setup documentation in README.md or dedicated config files
-
-**Status:** `missing` if no optional auth sections found (this is optional)
 
 ## Implementation Strategy
 

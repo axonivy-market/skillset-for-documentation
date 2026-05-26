@@ -196,19 +196,9 @@ Generate product description, key-feature bullets, demo intro, and complete setu
       - Return as a dedicated `openApiSection` fragment for deterministic placement in assembly.
         - If no OpenAPI spec is found, set fragment status to `missing` and content to exactly: `- No information was delivered for this section.`
 
-4. **Optional Authentication/Runtime Sections**:
-    - If optional authentication/runtime sections are documented (e.g., JWT, OAuth consent, service accounts), extract complete setup including:
-       - Prerequisites context
-       - All numbered steps with nested sub-steps
-       - Image references (![...](images/...))
-       - Final confirmation and service interactions
-   - Keep explanation user-oriented: what to configure, why it matters, and what success looks like
-    - Preserve nested lists and code blocks exactly when extracted from docs
-   - If missing, synthesize a placeholder.
+4. Maven Artifacts: Extract artifact coordinates from `product.json`, then order the rendered list by the root `pom.xml` module sequence. Format as numbered list with XML dependency blocks and include only `groupId`, `artifactId`, and `<type>`; do NOT include a `<version>` element in the README (the build/pipeline should resolve versions). Use `*(optional)*` marker for optional artifacts and set status:missing if none found.
 
-5. Maven Artifacts: Extract artifact coordinates from `product.json`, then order the rendered list by the root `pom.xml` module sequence. Format as numbered list with XML dependency blocks and include only `groupId`, `artifactId`, and `<type>`; do NOT include a `<version>` element in the README (the build/pipeline should resolve versions). Use `*(optional)*` marker for optional artifacts and set status:missing if none found.
-
-6. Return JSON fragments conforming to [output-format.md](references/output-format.md)
+5. Return JSON fragments conforming to [output-format.md](references/output-format.md)
 
 ## Language / CMS behavior
 
@@ -225,7 +215,6 @@ Generate product description, key-feature bullets, demo intro, and complete setu
 - `openApiSection`: OpenAPI resources/config details (Spec URL + Namespace) — goes INTO Setup section
 - `setupSection`: All setup steps discovered from source docs/configuration (numbered steps, images preserved)
 - `variablesSection`: Complete variables YAML with comments and notes
-- `optionalAuthSection`: Optional authentication/runtime setup (if applicable)
 - `mavenArtifactSection`: Maven artifacts with numbered XML dependency blocks. Do not include a `<version>` element in the generated blocks; prefer leaving version resolution to the packaging/build pipeline.
 
 Each section should include contract metadata when possible:
