@@ -25,6 +25,11 @@ Each sub-skill must return a JSON object conforming to this contract:
 2. README/README_*.md in main module
 3. Configuration hints from `config/rest-clients.yaml`, `config/roles.xml`
 
+**Filtering rules (mandatory):**
+- Ignore CI/CD badges, shields.io images, workflow status badges, and similar non-product status indicators.
+- Ignore self-referential documentation links that point to the generated README itself or to the same product module README.
+- Ignore single-line navigation CTAs such as `Read our documentation` when they do not add functional product context.
+
 **Example output:**
 ```markdown
 # Product Name
@@ -132,6 +137,11 @@ Variables:
 **Example output:**
 ```markdown
 https://graphexplorerapi.azurewebsites.net/openapi?tags=me.user,me.calendar,users.calendar,me.message,me.Actions,me.todo,me.site,sites.Actions,me.drive,me.chat,chats.chat,chats.chatMessage&openApiVersion=3&graphVersion=v1.0&format=yaml&style=PowerShell
+```
+
+**Missing output:**
+```markdown
+- No information was delivered for this section.
 ```
 
 **Status:** `success` if URL found, `missing` otherwise.

@@ -63,6 +63,10 @@ Generate product description, key-feature bullets, demo intro, and complete setu
             3. If no intro is found in docs, synthesize from repository evidence (`config/*`, process metadata, product.json).
          - If no intro is found, synthesize a marketing-friendly intro with product image and external links.
          - External image URLs found in source README files are valid and should be preserved (no forced local image copy required).
+         - Exclude non-product intro noise from extracted intro blocks:
+            - CI/CD badges, shields, workflow status images, and other badge-style images/links
+            - self-referential documentation links that point to the generated target README or the current product module README
+            - navigation-only CTA lines such as `Read our documentation` when they do not add product meaning
          - Preserve paragraph structure, image, and marketing-friendly wording.
 
       1.1.1 **Intro quality gate (generic, mandatory):**
@@ -186,7 +190,7 @@ Generate product description, key-feature bullets, demo intro, and complete setu
       - Extract OpenAPI endpoint/spec details from `config/rest-clients.yaml` and related docs.
       - Present OpenAPI spec URL and namespace.
       - Return as a dedicated `openApiSection` fragment for deterministic placement in assembly.
-      - If no OpenAPI spec is found, set content to: "No public OpenAPI specs delivered by this extension."
+        - If no OpenAPI spec is found, set fragment status to `missing` and content to exactly: `- No information was delivered for this section.`
 
 4. **Optional Authentication/Runtime Sections**:
     - If optional authentication/runtime sections are documented (e.g., JWT, OAuth consent, service accounts), extract complete setup including:
@@ -198,9 +202,9 @@ Generate product description, key-feature bullets, demo intro, and complete setu
     - Preserve nested lists and code blocks exactly when extracted from docs
    - If missing, synthesize a placeholder.
 
-5. Maven Artifacts: Extract from main module pom.xml with groupId, artifactId, descriptions. Format as numbered list with XML dependency blocks using @version@ template variable and <type>iar</type> for Axon Ivy artifacts. Set status:missing if none found.
+5. Maven Artifacts: Extract from main module pom.xml with groupId, artifactId, descriptions. Format as numbered list with XML dependency blocks and include only `groupId`, `artifactId`, and `<type>`; do NOT include a `<version>` element in the README (the build/pipeline should resolve versions). Use `*(optional)*` marker for optional artifacts and set status:missing if none found.
 
-6. Return JSON fragments conforming to [output-format.md](../references/output-format.md)
+6. Return JSON fragments conforming to [output-format.md](references/output-format.md)
 
 ## Language / CMS behavior
 
@@ -218,7 +222,7 @@ Generate product description, key-feature bullets, demo intro, and complete setu
 - `setupSection`: All setup steps discovered from source docs/configuration (numbered steps, images preserved)
 - `variablesSection`: Complete variables YAML with comments and notes
 - `optionalAuthSection`: Optional authentication/runtime setup (if applicable)
-- `mavenArtifactSection`: Maven artifacts with numbered XML dependency blocks, @version@ template variable
+- `mavenArtifactSection`: Maven artifacts with numbered XML dependency blocks. Do not include a `<version>` element in the generated blocks; prefer leaving version resolution to the packaging/build pipeline.
 
 Each section should include contract metadata when possible:
 - `preserveMode`: `verbatim` for long instructional blocks, otherwise `structured`

@@ -24,6 +24,9 @@ If images are found, suggest placement (intro/demo/dashboard) and synthesize a m
 	2. `<productModule>/target/README.md` (if present)
 	3. repository root `README.md`
 - Extract markdown image entries of form `![alt](https://...)`.
+- Exclude badge/status images and other non-product indicators from external discovery.
+  - Exclude when alt text or URL indicates CI/CD, build, workflow, badge, shield, status, coverage, or similar repository health metadata.
+  - Exclude GitHub Actions badge URLs such as `actions/workflows/*.yml/badge.svg` and Shields.io badge URLs.
 - Include extracted external images in output with placement hint `intro` unless the surrounding heading indicates `Demo` or `Setup`.
 - External URLs are first-class image sources; do not downgrade them to missing just because no local file exists.
 
@@ -242,7 +245,7 @@ Similarity scoring:
 Embedding guidance for assemblers (required):
 - Assemblers MUST prefer to embed images into their target sections as follows:
   - `intro` -> insert after the first paragraph of `productDescriptionSection`
-  - `demo` -> insert under `## Demo` before `### Demo workflows` or beside the related demo workflow block if placement hints include `demo:workflow-<name>`
+  - `demo` -> insert under `## Demo` before `### Demo Workflows` or beside the related demo workflow block if placement hints include `demo:workflow-<name>`
   - `setup` -> insert inside `## Setup` close to the related step or at top of `### Variables` if the image documents configuration
 - When multiple images share the same placement, assembler may insert them sequentially in the order discovered.
 - Only when `standalone=true` should the assembler create a `## Images` section; otherwise images must be injected inline into related sections.

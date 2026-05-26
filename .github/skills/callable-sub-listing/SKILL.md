@@ -100,7 +100,7 @@ Example markdown content field:
 - Return JSON fragment with `section=callableSubSection`, `status`, and markdown `content`
 - Do NOT include HTML comments in the content field (status metadata goes in JSON fields only)
 - Start output directly with `#### [file-name].p.json` file grouping headers (no parent section headings)
-- Group by process file; do not add extra section headings (template provides `### Connector Processes`)
+- Group by process file; do not add extra section headings (template provides `### Callable Subprocesses`)
 - Bold signature: `**[name]([input params]) -> [output var]: [type]**`
 - Input section: list all input parameters with types and descriptions, if none, state `(none)`
 - Result section: list all output parameters with types and descriptions, if none, state `(none)`
@@ -117,4 +117,4 @@ Example markdown content field:
 - Parameters grouped by input/result sections
 - Output status reflects completeness (success | partial | missing)
 - No ambiguous placeholders are allowed in place of missing extractions.
-- Prefer repository-native wording from the README template; use `Connector processes` in generated component listings.
+- Prefer repository-native wording from the README template; use `Callable Subprocesses` in generated component listings.

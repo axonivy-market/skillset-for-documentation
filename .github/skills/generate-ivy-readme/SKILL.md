@@ -134,17 +134,16 @@ Behavior / Steps
    - Assemble using schema order from `output-format.md`.
    - Do not prepend, parse, or copy any product description block from README.md.
    - Inject sub-skill outputs verbatim using the contract defined in `output-format.md`.
-   - If a Demo workflows section is present in docs or can be inferred from demo process files, inject it as a subheading under Demo.
-   - Include a Demo intro/body paragraph before Demo workflows when available (`demoIntroSection`).
+   - If a Demo Workflows section is present in docs or can be inferred from demo process files, inject it as a subheading under Demo.
+   - Include a Demo intro/body paragraph before Demo Workflows when available (`demoIntroSection`).
    - Keep variables under Setup as a `### Variables` subsection by default; do not create a standalone `## Variables` section unless style profile explicitly requires it.
    - If `variablesSection` is genuinely missing after extraction, render exactly `- No variables were detected.` under `### Variables` (do not synthesize fake YAML keys).
-   - Support heading aliases from style profile (e.g., `Connector Processes` <-> `Connector Processes`, `Form Components` <-> `Form Components`) without dropping content.
    - Do not drop sections when a fragment is empty. Insert `missingSectionFallback` under that heading.
    - Apply assembler fallback rules: keep heading + inject placeholder if status is `missing` or content is empty.
    - Enforce coverage gate: when fragment declares `requiredSubsections`, missing subsections must be reported and rendered with explicit placeholders.
    - Preserve @variables.yaml@ literal block exactly (including surrounding line breaks).
-   - Always render `## Components` as parent heading and place `### Connector Processes`, `### Form Components`, and `### Maven artifacts` beneath it.
-   - Never render `## Connector Processes` as a top-level section.
+   - Always render `## Components` as parent heading and place `### Callable Subprocesses`, `### Dialog Components`, `### Web Services`, and `### Maven Artifacts` beneath it.
+   - Never render `## Callable Subprocesses` as a top-level section.
    - **CRITICAL**: Remove any footer metadata, generation timestamps, skill attribution comments, or output contract references from final output.
    - Only footer-free content appears in README.md.
    - Do not add helper sections such as `## Notes`, `## Generation Info`, or other non-template metadata headings.
@@ -156,7 +155,7 @@ Behavior / Steps
    - **ivy-readme-demo-workflows**: Prefer `https://market.axonivy.com/...` links over local relative links when both are available in sources.
    - **form-components-listing**: Extract component parameters from actual `.d.json` dataclass files (source-of-truth, no fabricated attributes)
    - **callable-sub-listing**: Include exact signatures with full parameter names and types (e.g., `writeMail(msgraph.connector.NewMail mail) -> ...`)
-   - **maven-artifact-listing**: Use template variables (@artifact.id@, @version@) instead of resolved values
+   - **maven-artifact-listing**: Use template variables (@artifact.id@) instead of resolved values
    - All skills must preserve inline comments, documentation, and image references from sources
 
 5. Optional quality check:

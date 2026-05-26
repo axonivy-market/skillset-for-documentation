@@ -60,9 +60,9 @@ When the assembler receives a fragment:
 6. **Honor `preserveMode=verbatim`** for setup/auth/variables blocks to avoid dropping long instructional content.
 7. **Placement rule**: `variablesSection` should be rendered under `## Setup` as `### Variables` unless style profile explicitly requires standalone placement.
 8. **Variables missing rule**: If `variablesSection` is `missing` or empty, render exactly `- No variables were detected.` under `### Variables`.
-8. **Demo rule**: Render `demoIntroSection` under `## Demo`, then always render heading `### Demo workflows` before injecting `demoWorkflows` fragment content (or fallback if missing). The assembler MUST always render heading `### Demo workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
+8. **Demo rule**: Render `demoIntroSection` under `## Demo`, then always render heading `### Demo Workflows` before injecting `demoWorkflows` fragment content (or fallback if missing). The assembler MUST always render heading `### Demo Workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
 9. **Demo link preference**: Prefer `https://market.axonivy.com/...` links when both market and local relative links are present for the same demo service.
-10. **Components hierarchy**: Always render `## Components` as parent heading. `Connector processes`, `Form Components`, and `Maven artifacts` must be `###` subsections under it.
+10. **Components hierarchy**: Always render `## Components` as parent heading. `Callable Subprocesses`, `Dialog Components`, `Web Services`, and `Maven Artifacts` must be `###` subsections under it.
 
 ---
 
@@ -75,7 +75,7 @@ The generated README should follow this format:
 
 Product description: a simple, non-technical summary of the product's value proposition and capabilities. This should be accessible to non-technical stakeholders and marketing-oriented, avoiding technical jargon.
 
-### Key features
+**Key features**
 
 - Concise bullet point describing a key feature of the product.
 
@@ -83,9 +83,9 @@ Product description: a simple, non-technical summary of the product's value prop
 
 Step-by-step user workflow derived from the demo module(s). This should describe how a user would interact with the product in a real-world scenario, based on the processes and assets found in the demo module(s).
 
-### Demo workflows
+### Demo Workflows
 
-Assembler injects demoIntroSection under Demo, then injects demoWorkflows under Demo workflows.
+Assembler injects demoIntroSection under Demo, then injects demoWorkflows under Demo Workflows.
 
 ## Setup
 
@@ -117,19 +117,19 @@ If optional auth/runtime sections are documented (e.g., JWT, service account, OA
 
 ## Components
 
-### Connector processes
+### Callable Subprocesses
 
 {{callableSubSection}}
 
-### Form components
+### Dialog Components
 
 {{formComponentSection}}
 
-### Open API resources
+### Web Services
 
 {{openApiSection}}
 
-### Maven artifacts
+### Maven Artifacts
 
 {{mavenArtifactSection}}
 ```

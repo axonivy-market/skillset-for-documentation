@@ -32,10 +32,11 @@ Assemble README from fragment inputs without recomputation.
        - Renumber sequentially by indentation level so top-level steps render as `1.`, `2.`, `3.` and nested steps stay nested.
        - Do not alter fenced code blocks, inline code, links, or image paths.
    - Resolve heading aliases from `styleProfile` and inject into the repository-native heading without changing the fragment content.
-   - **Demo section**: Inject `demoIntroSection` directly under `## Demo`. Always render heading `### Demo workflows` after `demoIntroSection`, then inject `demoWorkflows` fragment content (or fallback if missing).
+  - **Demo section**: Inject `demoIntroSection` directly under `## Demo`. Always render heading `### Demo Workflows` after `demoIntroSection`, then inject `demoWorkflows` fragment content (or fallback if missing).
    - **Setup section**: Assemble in order: Roles → OpenAPI → Variables block reference → [Setup steps].
    - **Roles placement**: Insert as bullet point at start of Setup section (before steps): `- **Roles:** ...`
    - **OpenAPI placement**: Insert as bullet point WITHIN Setup section (not separate `## Components` section): `- **OpenAPI:** Spec URL + Namespace`
+     - If `openApiSection` is `missing` or empty, render exactly: `- **OpenAPI:** No information was delivered for this section.`
    - **Variables placement**: Inject under `## Setup` as `### Variables` subsection (not standalone section) unless style profile explicitly requests standalone.
    - **Image placement**: If an image fragment is present with `standalone=false`, place image snippets in the target sections indicated by fragment placement hints (for example intro/demo/setup). If `productImageSection` status is `missing` or empty, do NOT create a standalone `## Images` section. Instead, skip image section entirely. All images must be embedded within their related content sections (Setup, Demo, etc.).
      - **Image embedding algorithm** (required, step-aware for per-workflow demo images):
@@ -122,11 +123,11 @@ Assemble README from fragment inputs without recomputation.
        
        **Type 4: `demo`** (fallback without workflow match)
        ```
-       Goal: Insert image under ## Demo before ### Demo workflows
+      Goal: Insert image under ## Demo before ### Demo Workflows
        
        Algorithm:
          1. Locate ## Demo section heading
-         2. Find ### Demo workflows subheading
+         2. Find ### Demo Workflows subheading
          3. Insert image between them
        ```
        
@@ -150,7 +151,7 @@ Assemble README from fragment inputs without recomputation.
        
        Step 3: If no match found
          - Log warning: "Image placement 'demo:workflow-X' did not match any heading"
-         - Fallback: insert image under ## Demo before ### Demo workflows
+         - Fallback: insert image under ## Demo before ### Demo Workflows
        
        WORKS FOR ANY WORKFLOW - Examples:
          - "Document Splitting" ↔ "DocumentSplitting.png"
@@ -242,7 +243,7 @@ Assemble README from fragment inputs without recomputation.
        }
        
        README Content (before):
-       ### Demo workflows
+      ### Demo Workflows
        #### my-demo-module (any demo module)
        ##### Document Splitting
        1. Launch the Document Splitting demo
@@ -251,7 +252,7 @@ Assemble README from fragment inputs without recomputation.
        4. Review and download results
        
        README Content (after):
-       ### Demo workflows
+      ### Demo Workflows
        #### my-demo-module
        ##### Document Splitting
        1. Launch the Document Splitting demo
@@ -281,9 +282,9 @@ Assemble README from fragment inputs without recomputation.
           - If `placement` is `demo:workflow-<WorkflowName>:step-<N>`, find the workflow block and insert the image snippet directly below numbered step `N` (same indentation level as workflow step attachments).
           - **Matching algorithm (robust):** Before attempting an exact match, normalize both the `<WorkflowName>` from the placement value and each demo workflow heading using the same rules: lowercase, remove punctuation (quotes, parentheses), collapse repeated whitespace, replace common punctuation with spaces, and trim. Compare normalized forms for equality; if no exact equality, then try substring match of token sequences (longest-first). This relaxed matching makes placements resilient to minor differences in punctuation, quoting, or diacritics.
           - If `placement` is `intro`, insert after the first paragraph of `productDescriptionSection`.
-          - If `placement` is `demo`, insert under `## Demo` before `### Demo workflows` (or close to the Demo section if no workflows exist).
+          - If `placement` is `demo`, insert under `## Demo` before `### Demo Workflows` (or close to the Demo section if no workflows exist).
           - If `placement` is `setup`, insert within `## Setup` near the related step or at top of `### Variables` if the image documents configuration.
-          - If no matching heading is found after relaxed matching, fall back to the nearest parent section (`productDescriptionSection`, `Demo`, `Setup`). When falling back from `demo:workflow-...`, prefer inserting under `## Demo` before `### Demo workflows`.
+          - If no matching heading is found after relaxed matching, fall back to the nearest parent section (`productDescriptionSection`, `Demo`, `Setup`). When falling back from `demo:workflow-...`, prefer inserting under `## Demo` before `### Demo Workflows`.
           - Insert the image snippet on a separate indented block: blank line, image line, blank line. Preserve the snippet exactly as provided by the fragment.
        2. If multiple images target the same insertion point, append them in discovery order.
        3. If `standalone=true`, create `## Images` and place any images without explicit placements there; otherwise do not create `## Images`.
@@ -294,10 +295,10 @@ If an image has `placement: demo:workflow-Document Splitting`, assembler must fi
 
 If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler must insert the image directly below step `2.` in that workflow.
    - **Critical image rule**: Do not create a standalone `## Images` section under any circumstances unless the template or fragment explicitly sets `standalone=true`. When `productImageSection` is missing/empty, simply omit the entire Images section from output — do not insert a fallback placeholder like "No images detected".
-   - **Components hierarchy rule**: Always render `## Components` and place `### Connector Processes`, `### Form Components`, and `### Maven artifacts` beneath it.
-   - Never render `## Connector Processes` as top-level heading.
+  - **Components hierarchy rule**: Always render `## Components` and place `### Callable Subprocesses`, `### Dialog Components`, `### Web Services`, and `### Maven Artifacts` beneath it.
+  - Never render `## Callable Subprocesses` as top-level heading.
    - **Variables missing rule**: Under `### Variables`, if `variablesSection` is missing/empty, inject exactly `- No variables were detected.`
-3. Never omit a section heading from the template. The assembler MUST always render heading `### Demo workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
+3. Never omit a section heading from the template. The assembler MUST always render heading `### Demo Workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
 4. Remove unnecessary HTML comments (e.g., `<!-- status: ... -->`) from fragment content before injection. Never include timestamps, skill names, or other metadata in the final output.
 5. Preserve exact variable block `@variables.yaml@` if present.
 6. Apply `styleProfile` when present to keep repository-native markdown conventions (ordered list style, OpenAPI style, callable-sub layout).
@@ -319,9 +320,9 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
    - Heading order follows the README Template Format in output-format.md strictly. The assembler MUST always render sections in this order, regardless of fragment extraction order:
       1. Product description (productDescriptionSection)
       2. Key features (keyFeatures)
-      3. Demo (demoIntroSection, then heading ### Demo workflows, then demoWorkflows)
+      3. Demo (demoIntroSection, then heading ### Demo Workflows, then demoWorkflows)
       4. Setup (rolesSection, openApiSection, variablesSection, optionalAuthSection)
-      5. Components (callableSubSection, formComponentSection, openApiSection, mavenArtifactSection)
+      5. Components (`### Callable Subprocesses` from callableSubSection, `### Dialog Components` from formComponentSection, `### Web Services` from openApiSection, `### Maven Artifacts` from mavenArtifactSection)
    - If any fragment is missing, inject the fallback placeholder at the correct position.
 - Must keep all template headings even when fragment data is missing.
 - Must never read from or mutate approved `README.md` during assembly.

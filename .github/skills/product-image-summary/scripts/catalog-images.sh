@@ -63,11 +63,23 @@ extract_external_images_from_readme() {
         [[ -f "$readme" ]] || return 0
 
         awk -v place="$placement" '
+            function is_badge_image(markdown, lower_markdown) {
+                lower_markdown=tolower(markdown)
+                return lower_markdown ~ /badge\.svg/ ||
+                       lower_markdown ~ /shields\.io/ ||
+                       lower_markdown ~ /ci build/ ||
+                       lower_markdown ~ /ci-build/ ||
+                       lower_markdown ~ /workflow status/ ||
+                       lower_markdown ~ /build status/ ||
+                       lower_markdown ~ /coverage/ ||
+                       lower_markdown ~ /actions\/workflows\/.*\.yml\/badge\.svg/
+            }
+
             {
                 line=$0
                 while (match(line, /!\[[^\]]*\]\(https?:\/\/[^)]+\)/)) {
                     img=substr(line, RSTART, RLENGTH)
-                    if (!seen[img]++) {
+                    if (!is_badge_image(img) && !seen[img]++) {
                         print place "\t" img
                     }
                     line=substr(line, RSTART+RLENGTH)

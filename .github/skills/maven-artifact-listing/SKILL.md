@@ -23,11 +23,12 @@ Extract Maven artifacts from `product.json` and return a JSON fragment for READM
 3. Render a numbered list of artifacts and XML dependency snippets.
 4. Use template variables or resolved values:
    - Prefer resolved `artifactId` values from `product.json` when present (e.g., `idp-connector-demo`).
-   - Use template variables like `@artifact.id@` and `@version@` only when the source product.json uses placeholders or template variables instead of concrete artifact coordinates.
+   - Use template variables like `@artifact.id@` only when the source product.json uses placeholders or template variables instead of concrete artifact coordinates.
 5. Formatting rules:
    - Keep optional marker as `*(optional)*` after artifact name.
    - Do not append inline metadata tuples like `(version: ..., type: ...)` to list item titles.
    - Keep `<type>...</type>` inside XML block only.
+   - Omit `<version>@version@</version>`.
 
 ## Output
 

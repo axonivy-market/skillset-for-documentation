@@ -19,7 +19,7 @@
 **Purpose:** Extract step-by-step workflow demonstrations from demo module process files and README documentation.
 
 **Sources (Priority order):**
-1. Demo workflows from README.md under `### Demo workflows` section (exact wording and structure)
+1. Demo workflows from README.md under `### Demo Workflows` section (exact wording and structure)
 2. Demo process files (`.p.json`) in demo modules (e.g., `msgraph-calendar-demo/processes/Demo/*.p.json`)
 3. Process annotations and visual descriptions from process JSON
 
@@ -51,13 +51,13 @@
 - Teams web demo: run `teamsWeb` to explore the web-integrated view.
 ```
 
-Note: The `demoWorkflows` fragment `content` must NOT include the heading `### Demo workflows`. That heading is rendered by the assembler.
+Note: The `demoWorkflows` fragment `content` must NOT include the heading `### Demo Workflows`. That heading is rendered by the assembler.
 
 ## Extraction Strategy
 
 ### 1. Extract from README.md (Priority 1)
 
-- Look for `### Demo workflows` section
+- Look for `### Demo Workflows` section
 - Extract all content under that heading until next heading (`##` or `###` that changes level)
 - Preserve exact wording, list structure, and callable-sub references
 
@@ -83,7 +83,7 @@ Note: The `demoWorkflows` fragment `content` must NOT include the heading `### D
 | Field | Value | Notes |
 |-------|-------|-------|
 | section | `demoWorkflows` | Fixed identifier |
-| content | Markdown with demo workflow steps | Can be from README.md or synthesized from process files; MUST contain only module blocks (`#### ...`) and workflow bullets, without the `### Demo workflows` heading |
+| content | Markdown with demo workflow steps | Can be from README.md or synthesized from process files; MUST contain only module blocks (`#### ...`) and workflow bullets, without the `### Demo Workflows` heading |
 | status | `success` if README.md demo section found; `partial` if synthesized from processes only; `missing` if no demo content found | - |
 | preserveMode | `verbatim` if from README.md; `structured` if synthesized | Preserve exact README.md wording when available |
 | requiredSubsections | Array of demo module names (e.g., ["Calendar", "Mail", "Files / SharePoint", "To Do", "Teams / Chat"]) | Used for coverage validation |
@@ -95,7 +95,7 @@ Note: The `demoWorkflows` fragment `content` must NOT include the heading `### D
 - **Preserve exact wording** - use exact function names, parameter types, dialog names from README or process JSON
 - **Include callable-sub signatures** - each workflow should reference which callable sub is invoked (e.g., `msCalendar:upcomingEvents()`)
 - **Maintain structure** - preserve heading levels, list formatting, and grouping from source
-- **Heading boundary** - do not include `### Demo workflows` in fragment content; include only `#### ...` module headers and workflow bullets
+- **Heading boundary** - do not include `### Demo Workflows` in fragment content; include only `#### ...` module headers and workflow bullets
 - **No fabrication** - only extract workflows that actually exist in docs or processes
 - **Complete workflows** - each workflow should be a complete step-by-step instruction or description
 
@@ -129,6 +129,6 @@ Extracted workflow:
 
 ## Status Determination
 
-- **success:** README.md has complete `### Demo workflows` section with all workflows documented
+- **success:** README.md has complete `### Demo Workflows` section with all workflows documented
 - **partial:** README.md exists but only some workflows documented, or workflows extracted from process files
 - **missing:** No README.md or process files with demo workflows found

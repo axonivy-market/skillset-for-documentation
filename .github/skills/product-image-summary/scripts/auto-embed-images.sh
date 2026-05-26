@@ -284,14 +284,14 @@ insert_snippet() {
     fi
   fi
 
-  # fallback: place under ## Demo before ### Demo workflows
+  # fallback: place under ## Demo before ### Demo Workflows
   if grep -q '^##[[:space:]]\+Demo' "$README"; then
-    # insert before "### Demo workflows" if exists
-    if grep -q '^###[[:space:]]\+Demo workflows' "$README"; then
+    # insert before "### Demo Workflows" if exists
+    if grep -q '^###[[:space:]]\+Demo Workflows' "$README"; then
       # insert before that heading
       awk -v snippet="$snippet" '
         BEGIN{inserted=0}
-        /^###[[:space:]]+Demo workflows/ && !inserted { print ""; print snippet; print ""; inserted=1 }
+        /^###[[:space:]]+Demo Workflows/ && !inserted { print ""; print snippet; print ""; inserted=1 }
         { print }
       ' "$README" > "$README".tmp && mv "$README".tmp "$README"
       return 0

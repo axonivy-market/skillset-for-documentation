@@ -87,7 +87,7 @@ Generate `## Demo` body from demo starts.
    - Remove workflows that are documented but no longer exist in demo processes.
    - Update workflows whose behavior no longer matches the current process flow.
    - Keep unchanged wording for workflows that are still accurate.
-   - Never merge by appending a second full `## Demo` body when a `### Demo workflows` section already exists; replace the existing workflow block in-place.
+  - Never merge by appending a second full `## Demo` body when a `### Demo Workflows` section already exists; replace the existing workflow block in-place.
    - **NEVER include the demoIntroSection content in demoWorkflows.**
 
 3.3 **Module rendering guard (mandatory):**
@@ -200,7 +200,7 @@ Example markdown content for demoWorkflows field (generated from RequestStart me
 
 **Output format rules:**
 - Return JSON fragment with `section=demoWorkflows`, `status`, and markdown `content`
-- The `demoWorkflows` fragment `content` MUST NOT include heading `### Demo workflows`; only include grouped module blocks (`#### ...`) and workflow step blocks.
+- The `demoWorkflows` fragment `content` MUST NOT include heading `### Demo Workflows`; only include grouped module blocks (`#### ...`) and workflow step blocks.
 - Module heading: `#### [Service/Module Name] ([module-path])`
 - Workflow subheading: `##### [Friendly Workflow Name]` (extracted from RequestStart `config.request.name`)
 - Workflow steps: Numbered 1–N (typically 3–5 steps, adapt per workflow)
