@@ -24,7 +24,7 @@ All sub-skills must follow a standardized output contract to ensure consistent a
 ```
 
 **Fields:**
-- **section**: Identifier for the README section (e.g., `productDescriptionSection`, `keyFeatures`, `demoIntroSection`, `demoWorkflows`, `setupSection`, `variablesSection`, `optionalAuthSection`, `callableSubSection`, `formComponentSection`, `openApiSection`, `mavenArtifactSection`).
+- **section**: Identifier for the README section (e.g., `productDescriptionSection`, `keyFeatures`, `demoIntroSection`, `demoWorkflows`, `setupSection`, `variablesSection`, `callableSubSection`, `formComponentSection`, `openApiSection`, `mavenArtifactSection`).
 - **content**: Raw Markdown text. Must be present even if empty; never omit the field.
 - **status**: `success` (full content), `partial` (incomplete), `missing` (no content found).
 - **preserveMode**: `verbatim` preserves source blocks exactly (long setup/auth sections), `structured` allows deterministic restructuring.
@@ -104,14 +104,6 @@ If no variables are found after a genuine extraction attempt, render:
 ```markdown
 - No variables were detected.
 ```
-
-### Optional authentication and runtime sections
-
-If optional auth/runtime sections are documented (e.g., JWT, service account, OAuth consent), include them with:
-- Prerequisites and context
-- Full numbered steps with nested sub-steps where applicable
-- Source image references and code blocks
-- Final verification/confirmation step
 
 ## Components
 

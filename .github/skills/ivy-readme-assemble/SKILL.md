@@ -307,7 +307,7 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
 ## Fragment validation rules
 
 - **Mandatory fragments**: productDescriptionSection, keyFeatures, demoIntroSection, demoWorkflows, rolesSection, openApiSection, setupSection, variablesSection, callableSubSection, formComponentSection, mavenArtifactSection
-- **Optional fragments**: productImageSection
+- **Optional fragments**:  productImageSection
 - Treat content as pseudo-filled if it only states availability (e.g., "present in file", "see process file") without extracted details required by that section.
 - Pseudo-filled content must be normalized to `missing` and rendered with explicit fallback text.
 - Normalization must preserve section headings and template order.
