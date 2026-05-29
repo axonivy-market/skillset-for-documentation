@@ -27,6 +27,7 @@ Extract Maven artifacts from `product.json`, ordered by the root `pom.xml` modul
    - Prefer resolved `artifactId` values from `product.json` when present (e.g., `idp-connector-demo`).
    - Use template variables like `@artifact.id@` only when the source product.json uses placeholders or template variables instead of concrete artifact coordinates.
 7. Formatting rules:
+   - List item title MUST be `artifactId` only (for example: `smart-workflow-openai`), not `groupId:artifactId`.
    - Keep optional marker as `*(optional)*` after artifact name.
    - Do not append inline metadata tuples like `(version: ..., type: ...)` to list item titles.
    - Keep `<type>...</type>` inside XML block only.

@@ -33,7 +33,7 @@ Assemble README from fragment inputs without recomputation.
        - Do not alter fenced code blocks, inline code, links, or image paths.
    - Resolve heading aliases from `styleProfile` and inject into the repository-native heading without changing the fragment content.
   - **Demo section**: Inject `demoIntroSection` directly under `## Demo`. Always render heading `### Demo Workflows` after `demoIntroSection`, then inject `demoWorkflows` fragment content (or fallback if missing).
-   - **Setup section**: Assemble in order: Roles → OpenAPI → Variables block reference → [Setup steps].
+  - **Setup section**: Assemble in order: Roles → OpenAPI → [Setup steps] → Variables block reference.
    - **Roles placement**: Insert as bullet point at start of Setup section (before steps): `- **Roles:** ...`
    - **OpenAPI placement**: Insert as bullet point WITHIN Setup section (not separate `## Components` section): `- **OpenAPI:** Spec URL + Namespace`
      - If `openApiSection` is `missing` or empty, render exactly: `- **OpenAPI:** No information was delivered for this section.`
@@ -297,7 +297,8 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
    - **Critical image rule**: Do not create a standalone `## Images` section under any circumstances unless the template or fragment explicitly sets `standalone=true`. When `productImageSection` is missing/empty, simply omit the entire Images section from output — do not insert a fallback placeholder like "No images detected".
   - **Components hierarchy rule**: Always render `## Components` and place `### Callable Subprocesses`, `### Dialog Components`, `### Web Services`, and `### Maven Artifacts` beneath it.
   - Never render `## Callable Subprocesses` as top-level heading.
-   - **Variables missing rule**: Under `### Variables`, if `variablesSection` is missing/empty, inject exactly `- No variables were detected.`
+  - **Variables missing rule**: Under `### Variables`, if `variablesSection` is missing/empty, do not inject any fallback sentence.
+  - **Setup fallback scoping rule**: If `setupSection` is `missing`, its fallback placeholder must stay scoped to setup steps only and must be omitted when Roles/OpenAPI/Variables already provide Setup content. Never render setup fallback lines under `### Variables`.
 3. Never omit a section heading from the template. The assembler MUST always render heading `### Demo Workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
 4. Remove unnecessary HTML comments (e.g., `<!-- status: ... -->`) from fragment content before injection. Never include timestamps, skill names, or other metadata in the final output.
 5. Preserve the exact fenced variable block containing `@variables.yaml@` if present.

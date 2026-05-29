@@ -20,11 +20,19 @@ Discover main, demo, and product modules quickly for Axon Ivy/Maven repositories
   - Single-module Maven repo (`pom.xml` without `<modules>`)
 2. If a root `pom.xml` with `<modules>` exists:
   - Enumerate `<modules>`.
-  - Classify modules:
-    - suffix `-demo`: demo module
-    - suffix `-product`: product module
+  - Classify modules (generic + deterministic):
+    - suffix `-product` OR module contains `product.json`: product module
     - suffix `test`, `-test`, `webtest`: excluded
-    - remaining: main candidates
+    - demo naming tokens: explicit demo module when name matches one of:
+      - suffix `-demo`
+      - suffix `-demos`
+      - tokenized pattern `-demos-` (for names like `pattern-demos-lock`)
+    - remaining: candidates for main/demo fallback
+  - If explicit demo modules are empty, infer demo modules by lightweight process evidence:
+    - scan `<module>/processes/**/*.p.json` for `"type": "RequestStart"`
+    - modules with RequestStart become `demoModules`
+  - If all non-excluded candidates are demos, set `mainModule` to the first inferred demo module (root module order)
+    - this keeps extraction non-empty for demo-heavy repositories
 3. If no Maven modules are found:
   - use repository root as `mainModule`
   - set `productModule` to repository root
@@ -41,13 +49,22 @@ Discover main, demo, and product modules quickly for Axon Ivy/Maven repositories
   "repoProfile": {
     "buildSystem": "maven|unknown",
     "languageHints": ["java"],
-    "isMonorepo": true
+    "isMonorepo": true,
+    "discoveryMode": "suffix-based|requeststart-inferred|..."
   }
 }
 ```
 
+## Script usage
+
+Use the provided script for deterministic extraction:
+
+```bash
+bash ./.github/skills/ivy-readme-discover-modules/scripts/discover-modules.sh [workspacePath]
+```
+
 ## Quality criteria
 
-- No deep source scanning.
+- No deep source scanning beyond lightweight `RequestStart` detection.
 - Deterministic output for same pom.xml.
 - Must prioritize Axon Ivy/Maven conventions and keep a safe root fallback.

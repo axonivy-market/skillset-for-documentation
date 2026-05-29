@@ -82,7 +82,8 @@ extraction logic directly against repository source files:
 4. **mavenArtifactSection** — read `<productModule>/product.json`
    - Extract `maven-dependency` and `maven-import` artifacts ordered by root `pom.xml` module order.
    - Mark `maven-import` artifacts with `importInWorkspace == false` as optional.
-   - Render numbered list with XML `<dependency>` blocks (no `<version>` element).
+  - Render numbered list with XML `<dependency>` blocks (no `<version>` element).
+  - Numbered list labels must show only `artifactId` (for example `smart-workflow-openai`), not `groupId:artifactId`.
    - If none found: `status: missing`, content: `- No information was delivered for this section.`
 
 ### Step 3 — Build English Components section

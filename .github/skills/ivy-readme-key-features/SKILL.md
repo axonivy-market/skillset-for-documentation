@@ -90,7 +90,13 @@ Generate product description, key-feature bullets, demo intro, and complete setu
          - Include links in Markdown format (preserve as-is from source)
 
 2. **Setup Section** (mandatory, concise):
-   - Extract all numbered steps from source documentation or configuration
+   - Extract setup content ONLY from `setup.md`.
+   - Allowed source resolution order for `setupSection` is strictly:
+     1. `<mainModule>/setup.md`
+     2. `<productModule>/setup.md` when the resolved product module differs from the main module and the caller provides that path
+   - Do NOT extract `setupSection` from `README.md`, `doc/**/*.md`, `OBSERVE.md`, inline documentation fragments, or configuration files.
+   - Do NOT synthesize or infer setup prose from any non-`setup.md` source.
+   - If no eligible `setup.md` exists, return `setupSection` with `status: missing` and empty content; let other fragments such as `rolesSection`, `openApiSection`, and `variablesSection` be resolved separately by their own rules.
    - The extracted `setupSection` MUST be returned in sequence-correct order.
    - **Normalize list formatting (MANDATORY):**
      - **Step 1: Detect broken hierarchy** — Parse the source setup block line by line:
@@ -146,7 +152,7 @@ Generate product description, key-feature bullets, demo intro, and complete setu
          4. For every image reference `![alt](path)` in the extracted content where `path` does NOT start with `http`, `/`, or `../` pointing outside `sourceDir`: prepend `relPrefix` to `path`.
          5. Verify the resulting path is resolvable from `targetDir`; if not, log a warning and keep original.
        - Example: source at `product/setup.md` uses `doc/img/foo.png`; target README at `product/products/connector/README.md` → rewrite to `../../doc/img/foo.png`.
-       - This rule applies to all content sources: `setup.md`, module README, `doc/README.md`, and any inline doc fragment.
+      - This rule applies only to `setup.md` sources.
      - Example:
        ```
        3. Navigate to Settings.
@@ -156,18 +162,18 @@ Generate product description, key-feature bullets, demo intro, and complete setu
        
           2. Paste your token.
        ```
-   - **Start with inline highlights**: Roles, OpenAPI (not separate section), and variables block reference upfront
+   - Do NOT prepend roles, OpenAPI, or variables content into `setupSection` unless they already exist inside `setup.md`.
    - **Tone and readability:** Write in a friendly, professional, user-first style; explain what the user does and what they should expect next
    - Avoid unexplained jargon in prose; when technical identifiers are required (variable keys, endpoint paths, class names), keep them exact but wrap them in concise explanatory text
-   - Include repository-specific setup subsections exactly as documented (authentication, endpoints, integration keys, runtime config, etc.)
+   - Include repository-specific setup subsections exactly as documented in `setup.md`.
    - Do NOT synthesize new subsection headings that are not present in source docs (for example `### Azure App`).
    - Template alignment rule: avoid emitting `### Azure App` as a heading in final setup fragments; convert that content into ordered setup steps under `## Setup`.
    - If source setup contains only numbered steps without subsections, keep it that way.
    - Include any additional setup notes, images references, or test confirmation steps
-   - Use `preserveMode=verbatim` when long setup blocks are found in source docs AND numbering is already correct
+   - Use `preserveMode=verbatim` when long setup blocks are found in `setup.md` AND numbering is already correct
    - Populate `requiredSubsections` with discovered mandatory subsections
-   - Include `### Variables` as a subsection of Setup by default when variables are present
-   - **CRITICAL**: OpenAPI info goes INTO Setup as a bullet point, NOT as a separate section (assembler will place it under Setup, not Components)
+   - Do NOT inject `### Variables` into `setupSection` by default; `variablesSection` is assembled separately.
+   - **CRITICAL**: OpenAPI info must not be fabricated into `setupSection`; it is delivered by `openApiSection` and placed by the assembler.
    - **NO standalone `## Images` section** — all images must be embedded inline within their related setup steps or sections
 
 2.1 **Roles Section** (NEW - extract from config/roles.xml):
@@ -183,7 +189,7 @@ Generate product description, key-feature bullets, demo intro, and complete setu
    - Preserve all inline comments and explanations
    - Include any NOTE/[!NOTE] blocks if present
    - Keep block formatting and indentation stable (verbatim where possible)
-   - If missing, set fragment status to `missing` with content exactly: `- No variables were detected.`
+   - If missing, set fragment status to `missing` with empty content (no fallback sentence for Variables section).
    - Do not synthesize fake/default YAML keys when the source file is missing.
    - Replace `{{variableSection}}` with this exact fenced block (preserve the backticks literally in the output file):
 ```

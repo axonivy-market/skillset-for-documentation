@@ -388,21 +388,27 @@ inject_section() {
     echo "Created: $file"
     return
   fi
+  # Sanitize existing file by removing accidental diagnostic lines that may have
+  # been written into the README (for example: "(The file ... exists, but is empty)").
+  # Work on a sanitized copy to avoid propagating such diagnostics into the final file.
+  local sanitized
+  sanitized=$(mktemp)
+  sed -E '/^\(The file .* exists, but is empty\)$/d' "$file" > "$sanitized"
 
   local tmp
   tmp=$(mktemp)
 
-  # Detect which heading variant is present (EN or DE)
+  # Detect which heading variant is present (EN or DE) in the sanitized copy
   local target_heading=""
-  if grep -qE '^## Components$' "$file" 2>/dev/null; then
+  if grep -qE '^## Components$' "$sanitized" 2>/dev/null; then
     target_heading="$heading_en"
-  elif grep -qE '^## Komponenten$' "$file" 2>/dev/null; then
+  elif grep -qE '^## Komponenten$' "$sanitized" 2>/dev/null; then
     target_heading="$heading_de"
   fi
 
   if [[ -z "$target_heading" ]]; then
     # Not present — append with a blank line separator
-    { cat "$file"; echo; printf '%s\n' "$new_block"; } > "$tmp"
+    { cat "$sanitized"; echo; printf '%s\n' "$new_block"; } > "$tmp"
   else
     # Replace region from heading through end-of-file (or next same-level heading)
     awk -v heading="$target_heading" -v new_block="$new_block" '
@@ -430,10 +436,12 @@ inject_section() {
           print new_block
         }
       }
-    ' "$file" > "$tmp"
+    ' "$sanitized" > "$tmp"
   fi
 
   mv "$tmp" "$file"
+  # Clean up sanitized temp file
+  rm -f "$sanitized"
   echo "Updated: $file"
 }
 
