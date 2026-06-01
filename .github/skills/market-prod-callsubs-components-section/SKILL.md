@@ -5,7 +5,7 @@ description: >
   Dialog Components, Web Services, Maven Artifacts) in both README.md (English)
   and README_DE.md (German) for an Axon Ivy Maven product module.
   Invoke with: /market-prod-callsubs-components-section
-argument-hint: '[optional: workspace root path] [optional: mainModule] [optional: targetReadme]'
+argument-hint: 'Generate and update only the ## Components section in README.md and README_DE.md for the product module.'
 user-invocable: true
 ---
 
@@ -69,20 +69,21 @@ extraction logic directly against repository source files:
    - If none found: `status: missing`, content: `- No connector processes delivered by this extension.`
 
 2. **formComponentSection** — scan `<mainModule>/src_hd/**`
-   - Extract `.d.json` fields (name, type) as source-of-truth.
+  - Find dialog process files matching `*Process.p.json`.
+  - Extract `Fields` from the process element where `config.signature == "start"`.
+  - Use `config.input.params[]` (`name`, `type`, `desc`) from that `start` signature.
    - Extract CMS descriptions from `cms_en.yaml` where available.
   - `Component type` must be one of exactly three values only:
-    - `Component` when `.xhtml` contains `<cc:interface ...>`
+    - `Component dialog` when `.xhtml` contains `<cc:interface ...>`
     - `UI dialog` when `.xhtml` contains `<ui:composition ...>`
     - `Form dialog` when sibling file name matches `*.f.json`
    - Format as documented in `form-components-listing` SKILL.md.
    - If none found: `status: missing`, content: `- No form components delivered by this extension.`
 
 3. **openApiSection** — read `<mainModule>/config/rest-clients.yaml`
-  - Extract `OpenAPI.SpecUrl` and `OpenAPI.Namespace` for every entry.
+  - Extract only `OpenAPI.SpecUrl` for every entry.
   - Only accept `SpecUrl` values that start with `http://` or `https://`.
-  - Render with markdown image snippet format: `![ClientName](SpecUrl)`.
-  - Keep namespace when available, e.g. `![ClientName](SpecUrl) (Namespace: [Namespace])`.
+  - Render URLs only (no namespace, no image syntax, no additional metadata).
    - If none found: `status: missing`, content: `- No information was delivered for this section.`
 
 4. **mavenArtifactSection** — read `<productModule>/product.json`
@@ -167,7 +168,6 @@ Standard German heading translations used in this section:
 | `### Maven Artifacts` | `### Maven-Artefakte` |
 | `- Input:` | `- Eingaben:` |
 | `- Result:` | `- Ergebnis:` |
-| `(no description available)` | `(keine Beschreibung verfügbar)` |
 | `- No information was delivered for this section.` | `- Es wurden keine Informationen für diesen Abschnitt geliefert.` |
 | `- No connector processes delivered by this extension.` | `- Diese Erweiterung liefert keine Connector-Prozesse.` |
 | `- No form components delivered by this extension.` | `- Diese Erweiterung liefert keine Formularkomponenten.` |

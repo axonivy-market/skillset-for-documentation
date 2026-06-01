@@ -60,12 +60,29 @@ fi
     # Count only files that contain at least one matching CallSubStart.
     callable_count=$((callable_count + 1))
 
-    echo "#### $file"
+    echo "#### $(basename "$file")"
 
     jq -r '
       .elements[]?
       | select(.type == "CallSubStart")
-      | "- Signature: " + (.config.callSignature // .config.signature // "") + "\n"
+      | (
+          (.config.signature // .name // "") as $sigName
+          | ((.config.input.params // .config.parameter.params // [])
+            | map((.type // "") + " " + (.name // ""))
+            | map(gsub("^ +| +$"; ""))
+            | join(", ")) as $inputSig
+          | ((.config.result.params // [])
+            | map((.name // "") + ": " + (.type // ""))
+            | map(gsub("^ +| +$"; ""))
+            | join(", ")) as $resultSig
+          | "- **Signature**: "
+            + $sigName
+            + "("
+            + $inputSig
+            + ")"
+            + (if $resultSig == "" then " -> (none)" else " -> " + $resultSig end)
+            + "\n"
+        )
       + "  Input: "
       + (if (.config.input // .config.parameter) then
          ((((.config.input // .config.parameter).params // [])

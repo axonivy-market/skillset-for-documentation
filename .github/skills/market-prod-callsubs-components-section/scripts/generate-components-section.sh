@@ -5,28 +5,27 @@
 # Regenerate ONLY the ## Components section in README.md (EN) and
 # README_DE.md (DE) for an Axon Ivy Maven product module.
 #
-# Usage:
-#   bash generate-components-section.sh <mainModule> <productModule> \
-#       [targetReadme] [targetReadmeDe]
-#
-# Examples:
-#   bash .github/skills/generate-ivy-readme-components-section/scripts/generate-components-section.sh \
-#       docusign-connector docusign-connector-product
-#
-#   bash .github/skills/generate-ivy-readme-components-section/scripts/generate-components-section.sh \
-#       docusign-connector docusign-connector-product \
-#       docusign-connector-product/README.md \
-#       docusign-connector-product/README_DE.md
-#
-# Requirements: jq, bash >= 4
-# =============================================================================
-set -euo pipefail
-
-# ---------------------------------------------------------------------------
-# 0. Arguments
-# ---------------------------------------------------------------------------
-MAIN_MODULE="${1:?Usage: $0 <mainModule> <productModule> [targetReadme] [targetReadmeDe]}"
-PRODUCT_MODULE="${2:?Usage: $0 <mainModule> <productModule> [targetReadme] [targetReadmeDe]}"
+  sed \
+    -e 's/^## Components$/## Komponenten/' \
+    -e 's/^### Callable Subprocesses$/### Aufrufbare Unterprozesse/' \
+    -e 's/^### Dialog Components$/### Dialogkomponenten/' \
+    -e 's/^### Web Services$/### Web-Services/' \
+    -e 's/^### Maven Artifacts$/### Maven-Artefakte/' \
+    -e 's/    - Input:$/    - Eingaben:/' \
+    -e 's/    - Input: (none)/    - Eingaben: (keine)/' \
+    -e 's/    - Result:$/    - Ergebnis:/' \
+    -e 's/    - Result: (none)/    - Ergebnis: (keine)/' \
+    -e 's/- No connector processes delivered by this extension\./- Diese Erweiterung liefert keine Connector-Prozesse./g' \
+    -e 's/- No form components delivered by this extension\./- Diese Erweiterung liefert keine Formularkomponenten./g' \
+    -e 's/- No information was delivered for this section\./- Es wurden keine Informationen für diesen Abschnitt geliefert./g' \
+    -e 's/\*(optional)\*/*(optional)*/g' \
+    -e 's/\*(dependency)\*/*(Abhängigkeit)*/g' \
+    -e 's/Reusable form component/Wiederverwendbare Formularkomponente/g' \
+    -e 's/(inferred purpose)/(abgeleiteter Zweck)/g' \
+    -e 's/\*\*Component type:\*\*/**Komponententyp:**/g' \
+    -e 's/\*\*Fields:\*\*/**Felder:**/g' \
+    -e 's/\*\*Purpose:\*\*/**Zweck:**/g' \
+    -e 's/    - Description:/    - Beschreibung:/g'
 TARGET_README="${3:-${PRODUCT_MODULE}/README.md}"
 TARGET_README_DE="${4:-${PRODUCT_MODULE}/README_DE.md}"
 
@@ -88,13 +87,13 @@ build_callable_sub_section() {
       # Inputs
       local in_block
       in_block=$(echo "$entry" | jq -r \
-        '.inputs | if length == 0 then "    - Input: (none)" else "    - Input:\n" + (map("        - `" + .name + "` (" + .type + ")" + if .desc != "" then " - " + .desc else " - (no description available)" end) | join("\n")) end')
+        '.inputs | if length == 0 then "    - Input: (none)" else "    - Input:\n" + (map("        - `" + .name + "` (" + .type + ")" + (if (.desc // "") != "" then " - " + .desc else "" end)) | join("\n")) end')
       content+="${in_block}"$'\n'
 
       # Results
       local res_block
       res_block=$(echo "$entry" | jq -r \
-        '.results | if length == 0 then "    - Result: (none)" else "    - Result:\n" + (map("        - `" + .name + "` (" + .type + ")" + if .desc != "" then " - " + .desc else " - (no description available)" end) | join("\n")) end')
+        '.results | if length == 0 then "    - Result: (none)" else "    - Result:\n" + (map("        - `" + .name + "` (" + .type + ")" + (if (.desc // "") != "" then " - " + .desc else "" end)) | join("\n")) end')
       content+="${res_block}"$'\n'
 
       # Optional visual description
@@ -137,28 +136,35 @@ build_dialog_components_section() {
     return
   fi
 
-  while IFS= read -r -d '' dfile; do
+  while IFS= read -r -d '' pfile; do
     # Skip demo and test namespaces
-    case "$dfile" in
+    case "$pfile" in
       *demo*|*test*) continue ;;
     esac
 
-    local simple_name namespace fields
-    simple_name=$(jq -r '.simpleName // empty' "$dfile" 2>/dev/null || true)
-    namespace=$(jq -r '.namespace // empty' "$dfile" 2>/dev/null || true)
+    local dir simple_name namespace
+    dir=$(dirname "$pfile")
+    simple_name=$(basename "$pfile")
+    simple_name="${simple_name%Process.p.json}"
+    namespace=$(echo "${dir#${src_hd}/}" | tr '/' '.')
     [[ -z "$simple_name" ]] && continue
+
+    # Only include dialog processes that expose start signature
+    local has_start
+    has_start=$(jq -r '[.elements[]? | select((.config.signature // "") == "start")] | length' "$pfile" 2>/dev/null || echo 0)
+    [[ "$has_start" -eq 0 ]] && continue
+
     found=1
 
-    local dir xhtml comp_type
-    dir=$(dirname "$dfile")
+    local xhtml comp_type
     xhtml=$(find "$dir" -maxdepth 1 -type f -name '*.xhtml' | head -n1 || true)
 
-    # Component type is restricted to 3 values only: Component, UI dialog, Form dialog.
+    # Component type is restricted to 3 values only: Component dialog, UI dialog, Form dialog.
     # Priority: Form dialog (*.f.json) > Component (<cc:interface>) > UI dialog (<ui:composition> or fallback)
     if find "$dir" -maxdepth 1 -type f -name '*.f.json' | grep -q .; then
       comp_type="Form dialog"
     elif [[ -n "$xhtml" ]] && grep -qiE '<cc:interface([[:space:]>])' "$xhtml" 2>/dev/null; then
-      comp_type="Component"
+      comp_type="Component dialog"
     else
       comp_type="UI dialog"
     fi
@@ -167,12 +173,17 @@ build_dialog_components_section() {
     content+="- **Namespace:** ${namespace:-(unknown)}"$'\n'
     content+="- **Component type:** ${comp_type}"$'\n'
 
-    # Fields
+    # Fields from *Process.p.json start signature input params
     local fields_md
     fields_md=$(jq -r '
-      .fields[]?
-      | "   - `" + .name + "` (" + .type + ") — (no description available)"
-    ' "$dfile" 2>/dev/null || true)
+      [
+        .elements[]?
+        | select((.config.signature // "") == "start")
+        | .config.input.params[]?
+      ]
+      | map("   - `" + .name + "` (" + .type + ")" + (if ((.desc // "") != "") then " — " + .desc else "" end))
+      | join("\n")
+    ' "$pfile" 2>/dev/null || true)
 
     if [[ -n "$fields_md" ]]; then
       content+="- **Fields:**"$'\n'
@@ -181,8 +192,18 @@ build_dialog_components_section() {
       content+="- **Fields:** (none declared)"$'\n'
     fi
 
+    # UI attributes: extract cc:attribute entries from .xhtml (if component declares them)
+    if [[ -n "$xhtml" ]] && grep -qiE '<cc:interface([[:space:]>])' "$xhtml" 2>/dev/null; then
+      ui_attrs_md=$(awk 'BEGIN{RS="<cc:attribute"; ORS=""} NR>1{ name=""; type=""; def=""; desc=""; if(match($0,/name="([^"]+)"/,a)) name=a[1]; if(match($0,/type="([^"]+)"/,b)) type=b[1]; if(match($0,/default="([^"]+)"/,c)) def=c[1]; if(match($0,/shortDescription="([^"]+)"/,d)) desc=d[1]; if(name!=""){ printf "   - `%s`", name; if(type!="") printf " (%s)", type; if(def!="") printf " (default: %s)", def; if(desc!="") printf " — %s", desc; printf "\n" } }' "$xhtml" 2>/dev/null || true)
+
+      if [[ -n "$ui_attrs_md" ]]; then
+        content+="- **UI attributes:**"$'\n'
+        content+="$ui_attrs_md"$'\n'
+      fi
+    fi
+
     content+=$'\n'
-  done < <(find "${src_hd}" -type f -name '*.d.json' -print0 | sort -z)
+  done < <(find "${src_hd}" -type f -name '*Process.p.json' -print0 | sort -z)
 
   if [[ $found -eq 0 ]]; then
     echo "- No form components delivered by this extension."
@@ -203,55 +224,27 @@ build_web_services_section() {
     return
   fi
 
-  # Parse entries from rest-clients.yaml and keep only public OpenAPI SpecUrl (http/https).
-  local current_client spec_url namespace
-  current_client=""
+  # Parse entries from rest-clients.yaml and keep only public OpenAPI.SpecUrl (http/https).
+  local spec_url
   spec_url=""
-  namespace=""
   local found=0
 
-  flush_openapi_entry() {
-    local client="$1"
-    local url="$2"
-    local ns="$3"
-    local cleaned="$url"
-
-    # Trim wrapping quotes if present.
-    cleaned="${cleaned#\"}"
-    cleaned="${cleaned%\"}"
-    cleaned="${cleaned#\'}"
-    cleaned="${cleaned%\'}"
-
-    # Only include public URLs.
-    if [[ -n "$client" && "$cleaned" =~ ^https?:// ]]; then
-      if [[ -n "$ns" ]]; then
-        content+="- ![${client}](${cleaned}) (Namespace: ${ns})"$'\n'
-      else
-        content+="- ![${client}](${cleaned})"$'\n'
-      fi
-      found=1
-    fi
-  }
-
   while IFS= read -r line; do
-    # Detect top-level REST client name (2-space indented key under RestClients:)
-    if [[ "$line" =~ ^[[:space:]]{2}([A-Za-z][A-Za-z0-9_-]+): ]]; then
-      # Flush previous client entry before switching to next client block.
-      flush_openapi_entry "$current_client" "$spec_url" "$namespace"
-      current_client="${BASH_REMATCH[1]}"
-      spec_url=""
-      namespace=""
-    fi
     if [[ "$line" =~ SpecUrl:[[:space:]]*(.*) ]]; then
       spec_url="${BASH_REMATCH[1]}"
-    fi
-    if [[ "$line" =~ ^[[:space:]]+Namespace:[[:space:]]*(.*) ]]; then
-      namespace="${BASH_REMATCH[1]}"
+      # Trim wrapping quotes if present.
+      spec_url="${spec_url#\"}"
+      spec_url="${spec_url%\"}"
+      spec_url="${spec_url#\'}"
+      spec_url="${spec_url%\'}"
+
+      # Render URL only.
+      if [[ "$spec_url" =~ ^https?:// ]]; then
+        content+="- ${spec_url}"$'\n'
+        found=1
+      fi
     fi
   done < "$rest_clients"
-
-  # Flush last client entry
-  flush_openapi_entry "$current_client" "$spec_url" "$namespace"
 
   if [[ $found -eq 0 ]]; then
     echo "- No information was delivered for this section."

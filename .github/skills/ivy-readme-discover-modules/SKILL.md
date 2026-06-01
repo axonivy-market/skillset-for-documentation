@@ -1,7 +1,7 @@
 ---
 name: ivy-readme-discover-modules
 description: Discover Axon Ivy Maven module roles from root pom.xml for README generation.
-argument-hint: '[optional: workspace root path]'
+argument-hint: 'Discover Axon Ivy Maven module roles from root pom.xml for README generation.'
 user-invocable: true
 ---
 

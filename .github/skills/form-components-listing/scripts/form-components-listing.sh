@@ -79,7 +79,7 @@ print_entry() {
     [[ -z $namespace ]] && ns2=$(jq -r '.config.data // .namespace // empty' "$pf" 2>/dev/null || true) && [[ -n $ns2 ]] && namespace=$ns2
   fi
 
-  # Component type is restricted to 3 values only: Component, UI dialog, Form dialog.
+  # Component type is restricted to 3 values only: Component dialog, UI dialog, Form dialog.
   # Priority: Form dialog (*.f.json) > Component (<cc:interface>) > UI dialog (<ui:composition> or fallback)
   if find "$dir" -maxdepth 1 -type f -name '*.f.json' | grep -q .; then
     comp_type="Form dialog"

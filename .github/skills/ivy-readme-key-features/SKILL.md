@@ -192,7 +192,8 @@ Generate product description, key-feature bullets, demo intro, and complete setu
 
    3.1 **OpenAPI Section**:
       - Extract OpenAPI endpoint/spec details from `config/rest-clients.yaml` and related docs.
-      - Present OpenAPI spec URL and namespace.
+      - Present OpenAPI spec URL only from `OpenAPI.SpecUrl`.
+      - Do not include namespace or any non-SpecUrl metadata.
       - Return as a dedicated `openApiSection` fragment for deterministic placement in assembly.
         - If no OpenAPI spec is found, set fragment status to `missing` and content to exactly: `- No information was delivered for this section.`
 

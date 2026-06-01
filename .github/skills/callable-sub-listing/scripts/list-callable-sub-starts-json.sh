@@ -53,6 +53,23 @@ for file in "${files[@]}"; do
               id: (.id // null),
               name: (.name // null),
               signature: (.config.signature // null),
+              signatureText: (
+              (.config.signature // .name // "") as $sigName
+              | ((.config.input.params // .config.parameter.params // [])
+                | map((.type // "") + " " + (.name // ""))
+                | map(gsub("^ +| +$"; ""))
+                | join(", ")) as $inputSig
+              | ((.config.result.params // [])
+                | map((.name // "") + ": " + (.type // ""))
+                | map(gsub("^ +| +$"; ""))
+                | join(", ")) as $resultSig
+              | "- **Signature**: "
+                + $sigName
+                + "("
+                + $inputSig
+                + ")"
+                + (if $resultSig == "" then " -> (none)" else " -> " + $resultSig end)
+              ),
               tags: (.tags // []),
               input: (
                 if .config.input then

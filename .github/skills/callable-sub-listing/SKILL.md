@@ -35,15 +35,15 @@ Generate a repeatable documentation listing from process files where:
 
 3. **Output Shape**
     - Group by process file, with heading `#### [process-file-name].p.json`
-    - For each callable sub, print the signature as: `**[name]([paramType] [paramName], ...) -> [resultVar]: [resultType]**` (bold)
+    - For each callable sub, print the signature as: `- **Signature**: [name]([paramType] [paramName], ...) -> [resultVar]: [resultType]`
     - **Signature format rules**:
       - Include **full parameter names** from `config.input.params[].name` (not just type)
       - Include **full type names** (not shortened) — e.g., `msgraph.connector.NewMail` not `NewMail`
-      - Format: `**[name]([paramType] [paramName], [paramType] [paramName]) -> [resultVar]: [resultType]**`
+    - Format: `- **Signature**: [name]([paramType] [paramName], [paramType] [paramName]) -> [resultVar]: [resultType]`
       - Multiple params separated by `, `
       - If no inputs: state `()` with no params listed
       - If no result: state `-> (none)` or omit result entirely
-      - Example: `**writeMail(msgraph.connector.NewMail mail) -> message: com.microsoft.graph.MicrosoftGraphMessage**`
+    - Example: `- **Signature**: writeMail(msgraph.connector.NewMail mail) -> message: com.microsoft.graph.MicrosoftGraphMessage`
     - List input and result parameters with types, descriptions, and mapping
     - If there are no input/result parameters, clearly state `(none)`
     - If a description is present, print it after the signature or in the description section
@@ -67,7 +67,7 @@ If no CALLABLE_SUB process is found, set content to: "No connector processes del
 {
     "section": "callableSubSection",
     "status": "success|partial|missing",
-    "content": "#### [process-file-name-1].p.json\n\n- **writeMail(msgraph.connector.NewMail mail) -> message: com.microsoft.graph.MicrosoftGraphMessage**\n    - Input:\n        - `mail` (msgraph.connector.NewMail) - The mail to send\n    - Result:\n        - `message` (com.microsoft.graph.MicrosoftGraphMessage) - The message that was sent\n\n#### [process-file-name-2].p.json\n\n- **upcomingEvents() -> myEvents: java.util.List<com.microsoft.graph.MicrosoftGraphEvent>**\n    - Input: (none)\n    - Result:\n        - `myEvents` (java.util.List<com.microsoft.graph.MicrosoftGraphEvent>) - List with upcoming events from calendar"
+    "content": "#### [process-file-name-1].p.json\n\n- **Signature**: writeMail(msgraph.connector.NewMail mail) -> message: com.microsoft.graph.MicrosoftGraphMessage\n    - Input:\n        - `mail` (msgraph.connector.NewMail) - The mail to send\n    - Result:\n        - `message` (com.microsoft.graph.MicrosoftGraphMessage) - The message that was sent\n\n#### [process-file-name-2].p.json\n\n- **Signature**: upcomingEvents() -> myEvents: java.util.List<com.microsoft.graph.MicrosoftGraphEvent>\n    - Input: (none)\n    - Result:\n        - `myEvents` (java.util.List<com.microsoft.graph.MicrosoftGraphEvent) - List with upcoming events from calendar"
 }
 ```
 
@@ -76,12 +76,12 @@ Example markdown content field:
 ```markdown
 #### msCalendar.p.json
 
-- **upcomingEvents() -> myEvents: java.util.List<com.microsoft.graph.MicrosoftGraphEvent>**
+- **Signature**: upcomingEvents() -> myEvents: java.util.List<com.microsoft.graph.MicrosoftGraphEvent>
     - Input: (none)
     - Result:
         - `myEvents` (java.util.List<com.microsoft.graph.MicrosoftGraphEvent>) - List with upcoming events from calendar
 
-- **createMeeting(msgraph.connector.NewEvent evt) -> meeting: com.microsoft.graph.MicrosoftGraphEvent**
+- **Signature**: createMeeting(msgraph.connector.NewEvent evt) -> meeting: com.microsoft.graph.MicrosoftGraphEvent
     - Input:
         - `evt` (msgraph.connector.NewEvent) - The new event that should be created in your calendar
     - Result:
@@ -89,7 +89,7 @@ Example markdown content field:
 
 #### msMail.p.json
 
-- **writeMail(msgraph.connector.NewMail mail) -> message: com.microsoft.graph.MicrosoftGraphMessage**
+- **Signature**: writeMail(msgraph.connector.NewMail mail) -> message: com.microsoft.graph.MicrosoftGraphMessage
     - Input:
         - `mail` (msgraph.connector.NewMail) - The mail to send
     - Result:
@@ -101,7 +101,7 @@ Example markdown content field:
 - Do NOT include HTML comments in the content field (status metadata goes in JSON fields only)
 - Start output directly with `#### [file-name].p.json` file grouping headers (no parent section headings)
 - Group by process file; do not add extra section headings (template provides `### Callable Subprocesses`)
-- Bold signature: `**[name]([input params]) -> [output var]: [type]**`
+- Signature line: `- **Signature**: [name]([input params]) -> [output var]: [type]`
 - Input section: list all input parameters with types and descriptions, if none, state `(none)`
 - Result section: list all output parameters with types and descriptions, if none, state `(none)`
 - Descriptions pulled from `visual.description` or parameter `desc` fields when available

@@ -23,7 +23,7 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
 2. **For each component**, extract:
    - Component name and namespace (from folder or xhtml name)
   - Component type using these rules (only 3 allowed output values):
-    - `Component`: detect `<cc:interface ...>` in `.xhtml`
+    - `Component dialog`: detect `<cc:interface ...>` in `.xhtml`
     - `UI dialog`: detect `<ui:composition ...>` in `.xhtml`
     - `Form dialog`: detect sibling file name matching `*.f.json`
    - **Paths to component files** (xhtml location)
@@ -35,7 +35,7 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
    - **Primary source:** `.d.json` dataclass files for actual field names and types
    - **Enrichment source 1:** `.cms` files for user-facing descriptions and component purpose
    - **Enrichment source 2:** `.xhtml` component definition files for:
-     - Component type classification restricted to `Component`, `UI dialog`, `Form dialog`
+     - Component type classification restricted to `Component dialog`, `UI dialog`, `Form dialog`
      - JSF `cc:interface` attributes and metadata if present
      - Component start method signature
    - **Enrichment source 3:** Related process files (`processes/**/*.p.json`) for:
@@ -54,7 +54,7 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
    - **Component heading:** `#### [Component Name] — [One-line purpose/benefit]` (NOT just `- **[Component Name]**`)
    - Each component must be preceded by a markdown level-4 heading (`####`), not a bullet point
    - **Namespace line:** `- **Namespace:** [full.namespace]`
-  - **Type line:** `- **Component type:** [Component | UI dialog | Form dialog]`
+  - **Type line:** `- **Component type:** [Component dialog | UI dialog | Form dialog]`
    - **Fields section with descriptions** (NOT just field types without descriptions):
      ```markdown
      - **Fields:**

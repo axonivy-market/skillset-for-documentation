@@ -35,7 +35,7 @@ Assemble README from fragment inputs without recomputation.
   - **Demo section**: Inject `demoIntroSection` directly under `## Demo`. Always render heading `### Demo Workflows` after `demoIntroSection`, then inject `demoWorkflows` fragment content (or fallback if missing).
    - **Setup section**: Assemble in order: Roles → OpenAPI → Variables block reference → [Setup steps].
    - **Roles placement**: Insert as bullet point at start of Setup section (before steps): `- **Roles:** ...`
-   - **OpenAPI placement**: Insert as bullet point WITHIN Setup section (not separate `## Components` section): `- **OpenAPI:** Spec URL + Namespace`
+  - **OpenAPI placement**: Insert as bullet point WITHIN Setup section (not separate `## Components` section): `- **OpenAPI:** Spec URL`
      - If `openApiSection` is `missing` or empty, render exactly: `- **OpenAPI:** No information was delivered for this section.`
    - **Variables placement**: Inject under `## Setup` as `### Variables` subsection (not standalone section) unless style profile explicitly requests standalone.
    - **Image placement**: If an image fragment is present with `standalone=false`, place image snippets in the target sections indicated by fragment placement hints (for example intro/demo/setup). If `productImageSection` status is `missing` or empty, do NOT create a standalone `## Images` section. Instead, skip image section entirely. All images must be embedded within their related content sections (Setup, Demo, etc.).
