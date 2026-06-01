@@ -66,6 +66,9 @@ Produce a German variant of the product introduction that reads naturally to nat
 
    - Keep the heading structure.
    - Write to `<productModule>/README_DE.md`. If the file already exists, overwrite it.
+   - Enforce atomic write mode: truncate target file first, then write the complete translated content in one pass.
+   - Never append (`>>`) or perform incremental patch updates for final translated output.
+   - Post-write duplicate check: ensure exactly one full-document start exists (single leading `# ...`). If a second full document start is detected, regenerate from current `README.md` and overwrite once.
 
 ## Quality criteria
 

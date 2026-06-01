@@ -22,7 +22,10 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
    - Do not scan unrelated workspace modules unless `includeDemoModules=true` is explicitly set by caller.
 2. **For each component**, extract:
    - Component name and namespace (from folder or xhtml name)
-   - Component type (HTML_DIALOG, COMPONENT, etc.)
+  - Component type using these rules (only 3 allowed output values):
+    - `Component`: detect `<cc:interface ...>` in `.xhtml`
+    - `UI dialog`: detect `<ui:composition ...>` in `.xhtml`
+    - `Form dialog`: detect sibling file name matching `*.f.json`
    - **Paths to component files** (xhtml location)
    - **Actual component parameters** from the corresponding `.d.json` dataclass file (NOT fabricated)
    - **UI attributes** declared in `.xhtml` component interface (if present)
@@ -32,7 +35,7 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
    - **Primary source:** `.d.json` dataclass files for actual field names and types
    - **Enrichment source 1:** `.cms` files for user-facing descriptions and component purpose
    - **Enrichment source 2:** `.xhtml` component definition files for:
-     - Component type (HTML_DIALOG, HTML_COMPONENT, JSF Composite Component, etc.)
+     - Component type classification restricted to `Component`, `UI dialog`, `Form dialog`
      - JSF `cc:interface` attributes and metadata if present
      - Component start method signature
    - **Enrichment source 3:** Related process files (`processes/**/*.p.json`) for:
@@ -51,16 +54,12 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
    - **Component heading:** `#### [Component Name] — [One-line purpose/benefit]` (NOT just `- **[Component Name]**`)
    - Each component must be preceded by a markdown level-4 heading (`####`), not a bullet point
    - **Namespace line:** `- **Namespace:** [full.namespace]`
-   - **Type line:** `- **Component type:** [Data Class | HTML_DIALOG | JSF Composite Component | etc.]`
+  - **Type line:** `- **Component type:** [Component | UI dialog | Form dialog]`
    - **Fields section with descriptions** (NOT just field types without descriptions):
      ```markdown
      - **Fields:**
         - `fieldName1` (FieldType1) — [Description: what this field is used for, e.g., "Email recipients list"]
         - `fieldName2` (FieldType2) — [Description: e.g., "Message subject line"]
-     ```
-   - **Where used section (if found):**
-     ```markdown
-     - **Where used:** [Callable sub name], [Demo dialog name], [Other process name]
      ```
    - **Purpose section (if available):**
      ```markdown
@@ -76,7 +75,7 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
    {
      "section": "formComponentSection",
      "status": "success|partial|missing",
-     "content": "#### [ComponentName] — [Purpose]\n- **Namespace:** ...\n- **Component type:** ...\n- **Fields:**\n   - `field1` (...) — description\n   - `field2` (...) — description\n- **Where used:** ...\n- **Purpose:** ...",
+    "content": "#### [ComponentName] — [Purpose]\n- **Namespace:** ...\n- **Component type:** ...\n- **Fields:**\n   - `field1` (...) — description\n   - `field2` (...) — description\n- **Purpose:** ...",
      "completeness": "full|partial"
    }
    ```

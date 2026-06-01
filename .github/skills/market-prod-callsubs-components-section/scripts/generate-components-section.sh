@@ -149,9 +149,23 @@ build_dialog_components_section() {
     [[ -z "$simple_name" ]] && continue
     found=1
 
+    local dir xhtml comp_type
+    dir=$(dirname "$dfile")
+    xhtml=$(find "$dir" -maxdepth 1 -type f -name '*.xhtml' | head -n1 || true)
+
+    # Component type is restricted to 3 values only: Component, UI dialog, Form dialog.
+    # Priority: Form dialog (*.f.json) > Component (<cc:interface>) > UI dialog (<ui:composition> or fallback)
+    if find "$dir" -maxdepth 1 -type f -name '*.f.json' | grep -q .; then
+      comp_type="Form dialog"
+    elif [[ -n "$xhtml" ]] && grep -qiE '<cc:interface([[:space:]>])' "$xhtml" 2>/dev/null; then
+      comp_type="Component"
+    else
+      comp_type="UI dialog"
+    fi
+
     content+="#### ${simple_name} — Reusable form component"$'\n\n'
     content+="- **Namespace:** ${namespace:-(unknown)}"$'\n'
-    content+="- **Component type:** Data Class"$'\n'
+    content+="- **Component type:** ${comp_type}"$'\n'
 
     # Fields
     local fields_md
@@ -189,21 +203,41 @@ build_web_services_section() {
     return
   fi
 
-  # Parse entries using awk: find OpenAPI blocks and extract SpecUrl/Namespace
+  # Parse entries from rest-clients.yaml and keep only public OpenAPI SpecUrl (http/https).
   local current_client spec_url namespace
   current_client=""
   spec_url=""
   namespace=""
   local found=0
 
+  flush_openapi_entry() {
+    local client="$1"
+    local url="$2"
+    local ns="$3"
+    local cleaned="$url"
+
+    # Trim wrapping quotes if present.
+    cleaned="${cleaned#\"}"
+    cleaned="${cleaned%\"}"
+    cleaned="${cleaned#\'}"
+    cleaned="${cleaned%\'}"
+
+    # Only include public URLs.
+    if [[ -n "$client" && "$cleaned" =~ ^https?:// ]]; then
+      if [[ -n "$ns" ]]; then
+        content+="- ![${client}](${cleaned}) (Namespace: ${ns})"$'\n'
+      else
+        content+="- ![${client}](${cleaned})"$'\n'
+      fi
+      found=1
+    fi
+  }
+
   while IFS= read -r line; do
     # Detect top-level REST client name (2-space indented key under RestClients:)
     if [[ "$line" =~ ^[[:space:]]{2}([A-Za-z][A-Za-z0-9_-]+): ]]; then
-      # Flush previous client if it had OpenAPI info
-      if [[ -n "$spec_url" && -n "$current_client" ]]; then
-        content+="- **${current_client}:** ${spec_url} (Namespace: ${namespace})"$'\n'
-        found=1
-      fi
+      # Flush previous client entry before switching to next client block.
+      flush_openapi_entry "$current_client" "$spec_url" "$namespace"
       current_client="${BASH_REMATCH[1]}"
       spec_url=""
       namespace=""
@@ -216,11 +250,8 @@ build_web_services_section() {
     fi
   done < "$rest_clients"
 
-  # Flush last client
-  if [[ -n "$spec_url" && -n "$current_client" ]]; then
-    content+="- **${current_client}:** ${spec_url} (Namespace: ${namespace})"$'\n'
-    found=1
-  fi
+  # Flush last client entry
+  flush_openapi_entry "$current_client" "$spec_url" "$namespace"
 
   if [[ $found -eq 0 ]]; then
     echo "- No information was delivered for this section."
@@ -365,7 +396,6 @@ translate_to_de() {
     -e 's/(inferred purpose)/(abgeleiteter Zweck)/g' \
     -e 's/\*\*Component type:\*\*/**Komponententyp:**/g' \
     -e 's/\*\*Fields:\*\*/**Felder:**/g' \
-    -e 's/\*\*Where used:\*\*/**Verwendung:**/g' \
     -e 's/\*\*Purpose:\*\*/**Zweck:**/g' \
     -e 's/    - Description:/    - Beschreibung:/g'
 }
@@ -388,27 +418,21 @@ inject_section() {
     echo "Created: $file"
     return
   fi
-  # Sanitize existing file by removing accidental diagnostic lines that may have
-  # been written into the README (for example: "(The file ... exists, but is empty)").
-  # Work on a sanitized copy to avoid propagating such diagnostics into the final file.
-  local sanitized
-  sanitized=$(mktemp)
-  sed -E '/^\(The file .* exists, but is empty\)$/d' "$file" > "$sanitized"
 
   local tmp
   tmp=$(mktemp)
 
-  # Detect which heading variant is present (EN or DE) in the sanitized copy
+  # Detect which heading variant is present (EN or DE)
   local target_heading=""
-  if grep -qE '^## Components$' "$sanitized" 2>/dev/null; then
+  if grep -qE '^## Components$' "$file" 2>/dev/null; then
     target_heading="$heading_en"
-  elif grep -qE '^## Komponenten$' "$sanitized" 2>/dev/null; then
+  elif grep -qE '^## Komponenten$' "$file" 2>/dev/null; then
     target_heading="$heading_de"
   fi
 
   if [[ -z "$target_heading" ]]; then
     # Not present — append with a blank line separator
-    { cat "$sanitized"; echo; printf '%s\n' "$new_block"; } > "$tmp"
+    { cat "$file"; echo; printf '%s\n' "$new_block"; } > "$tmp"
   else
     # Replace region from heading through end-of-file (or next same-level heading)
     awk -v heading="$target_heading" -v new_block="$new_block" '
@@ -436,12 +460,10 @@ inject_section() {
           print new_block
         }
       }
-    ' "$sanitized" > "$tmp"
+    ' "$file" > "$tmp"
   fi
 
   mv "$tmp" "$file"
-  # Clean up sanitized temp file
-  rm -f "$sanitized"
   echo "Updated: $file"
 }
 

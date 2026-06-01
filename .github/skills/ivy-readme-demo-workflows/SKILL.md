@@ -90,18 +90,26 @@ Generate `## Demo` body from demo starts.
   - Never merge by appending a second full `## Demo` body when a `### Demo Workflows` section already exists; replace the existing workflow block in-place.
    - **NEVER include the demoIntroSection content in demoWorkflows.**
 
-3.3 **Module rendering guard (updated):**
-   - Do not render a module heading unless at least one workflow block can be rendered for that module.
-   - If a module scan succeeds but no workflow details can be rendered (insufficient user-facing metadata), do **not** emit placeholder workflow blocks in the README. Instead:
-     - Omit the module entirely from the `demoWorkflows` fragment output, and
-     - Record the detection in the fragment `evidence` and set the fragment `status` to `partial` so the assembler and callers can surface coverage gaps via logs or metadata.
-   - This avoids injecting redundant placeholder text into the README while preserving completeness traceability in metadata.
+3.3 **Module rendering guard (mandatory):**
+   - Never emit a module heading without at least one workflow block below it.
+   - If module scan succeeds but no workflow details can be rendered, emit exactly one placeholder workflow block under that module:
+     ```
+     ##### [Workflow Name Pending]
+     1. Launch the process from the demo menu.
+     2. Workflow details could not be resolved from source process metadata.
+     ```
+   - This prevents empty demo subsections such as `#### Module` followed directly by the next top-level section.
 
-3.1 **Completeness gate (updated):**
-  - Count extracted `RequestStart` entries per module and the number of rendered workflow blocks.
-  - If rendered count is lower than extracted count, set fragment `status` to `partial` and include evidence metadata listing the unmatched `RequestStart` entries; do **not** append placeholder blocks to the README content.
-  - Only set `missing` when no `RequestStart` entries exist after a genuine scan.
-  - Never silently drop detection: unmatched entries must be trackable via fragment metadata (for example `evidence` or a coverage summary) but not rendered as placeholder prose.
+3.1 **Completeness gate (mandatory):**
+   - Count extracted `RequestStart` entries per module.
+   - Count rendered workflow blocks per module.
+   - If rendered count is lower than extracted count, set fragment status to `partial` and append one placeholder block per missing workflow:
+     ```
+     ##### Workflow [N]
+     - Workflow detected but mapping details were not fully resolved from source process model.
+     ```
+   - Only set `missing` when no `RequestStart` entries exist after a genuine scan.
+   - Never silently skip unmatched `RequestStart` entries.
 
 3.4 **Image Integration Support (NEW - GENERIC):**
    - **Optional input:** `imageMetadata` array containing pre-matched images from product-image-summary
@@ -204,7 +212,7 @@ Example markdown content for demoWorkflows field (generated from RequestStart me
 - Group all workflows for one module under its `#### Module Name` header
 - End with status comment
 - Deterministic order: process files alphabetical, then `RequestStart` by `config.signature`/`name`
-- If no workflows are found in a module after scan, do not inject placeholder blocks into README content; report coverage gaps via fragment metadata instead
+- If no workflows are found in a module after scan, include one explicit placeholder workflow block for that module
 
 ## Quality criteria
 

@@ -33,7 +33,7 @@ Assemble README from fragment inputs without recomputation.
        - Do not alter fenced code blocks, inline code, links, or image paths.
    - Resolve heading aliases from `styleProfile` and inject into the repository-native heading without changing the fragment content.
   - **Demo section**: Inject `demoIntroSection` directly under `## Demo`. Always render heading `### Demo Workflows` after `demoIntroSection`, then inject `demoWorkflows` fragment content (or fallback if missing).
-  - **Setup section**: Assemble in order: Roles → OpenAPI → [Setup steps] → Variables block reference.
+   - **Setup section**: Assemble in order: Roles → OpenAPI → Variables block reference → [Setup steps].
    - **Roles placement**: Insert as bullet point at start of Setup section (before steps): `- **Roles:** ...`
    - **OpenAPI placement**: Insert as bullet point WITHIN Setup section (not separate `## Components` section): `- **OpenAPI:** Spec URL + Namespace`
      - If `openApiSection` is `missing` or empty, render exactly: `- **OpenAPI:** No information was delivered for this section.`
@@ -289,6 +289,7 @@ Assemble README from fragment inputs without recomputation.
        2. If multiple images target the same insertion point, append them in discovery order.
        3. If `standalone=true`, create `## Images` and place any images without explicit placements there; otherwise do not create `## Images`.
        4. Do not alter image paths or alt-text. Do not add captions unless the fragment includes them.
+      5. Before insertion, validate image path safety/resolvability from target README. If path is malformed, absolute, traversal-based (`..`), or unresolved, skip insertion of that image snippet.
 
 ### Example:
 If an image has `placement: demo:workflow-Document Splitting`, assembler must find the `##### Document Splitting` workflow block in the Demo section and insert the image after the numbered steps for that workflow.
@@ -297,14 +298,16 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
    - **Critical image rule**: Do not create a standalone `## Images` section under any circumstances unless the template or fragment explicitly sets `standalone=true`. When `productImageSection` is missing/empty, simply omit the entire Images section from output — do not insert a fallback placeholder like "No images detected".
   - **Components hierarchy rule**: Always render `## Components` and place `### Callable Subprocesses`, `### Dialog Components`, `### Web Services`, and `### Maven Artifacts` beneath it.
   - Never render `## Callable Subprocesses` as top-level heading.
-  - **Variables missing rule**: Under `### Variables`, if `variablesSection` is missing/empty, do not inject any fallback sentence.
-  - **Setup fallback scoping rule**: If `setupSection` is `missing`, its fallback placeholder must stay scoped to setup steps only and must be omitted when Roles/OpenAPI/Variables already provide Setup content. Never render setup fallback lines under `### Variables`.
+  - **Variables missing rule**: Under `### Variables`, if `variablesSection` is missing/empty, do not inject fallback text.
 3. Never omit a section heading from the template. The assembler MUST always render heading `### Demo Workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
 4. Remove unnecessary HTML comments (e.g., `<!-- status: ... -->`) from fragment content before injection. Never include timestamps, skill names, or other metadata in the final output.
 5. Preserve the exact fenced variable block containing `@variables.yaml@` if present.
 6. Apply `styleProfile` when present to keep repository-native markdown conventions (ordered list style, OpenAPI style, callable-sub layout).
 6.1 Prefer repository-native section placement when style profile indicates it (e.g., variables inside setup).
 7. Write assembled result to target path.
+  - Use full-file overwrite semantics (truncate then write complete assembled content).
+  - Do not append to existing README content.
+  - After write, validate duplicate safety: exactly one full-document start (`# ...`) should exist. If duplicate full-document starts are found, rewrite the file once with the same assembled content.
 ## Fragment validation rules
 
 - **Mandatory fragments**: productDescriptionSection, keyFeatures, demoIntroSection, demoWorkflows, rolesSection, openApiSection, setupSection, variablesSection, callableSubSection, formComponentSection, mavenArtifactSection

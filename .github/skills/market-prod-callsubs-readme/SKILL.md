@@ -1,5 +1,5 @@
 ---
-name: generate-ivy-readme
+name: market-prod-callsubs-readme
 description: Generate a product README for an Axon Ivy project. Use when asked to create, generate, or update a README.md or README_DE.md for an Axon Ivy product module.
 ---
 
@@ -64,6 +64,9 @@ Execution guardrails (mandatory)
 7. Do not return a blocked result if assembly can still run with normalized `missing` fragments.
 8. **Normalization enforcement**: `ivy-readme-key-features` MUST normalize broken list numbering in setup sections (e.g., repeated `1.` items must be renumbered to `1.`, `2.`, `3.`, `4.`, etc. at top level with proper sub-numbering `1.1.`, `1.2.` for nested items). If source has broken numbering, return `preserveMode=structured` in fragment.
 9. **Image handling**: Do NOT create standalone `## Images` section in final README. All images must be embedded within their related sections (Setup, Demo, etc.). If `productImageSection` fragment is `missing`, omit images entirely from output — do not insert fallback text.
+9.1 **Image path validation (mandatory)**: Before embedding image snippets, validate that each path is safe and resolvable from the target README location. If a path is broken/malformed, skip that image snippet and continue generation.
+10. **Write mode enforcement (mandatory)**: `README.md` and `README_DE.md` must be written with full-file overwrite semantics (truncate then write). Never append to existing files and never use patch-style partial updates for final generation output.
+11. **Duplicate guard (mandatory)**: After writing each target file, validate that there is only one top-level title block (single leading `# ...` document start). If repeated full document starts are detected, regenerate and overwrite the target file once using the same source fragments/translation output.
 
 
 Output
@@ -91,7 +94,7 @@ Behavior / Steps
    - Treat `demoModules=[]` as suspicious in multi-module repositories when process files exist.
    - Consider repositories with explicit demo naming tokens (`-demo`, `-demos`, `-demos-`) as valid demo candidates before inferring by process evidence.
    - If `demoModules` is empty but non-excluded modules contain `processes/**/*.p.json` with `RequestStart`, infer those modules as `demoModules` in-memory for this run.
-   - If `mainModule` has no useful extraction evidence (no `setup.md`, no variables, no callable subs, no `src_hd`), retry extractors with a module set fallback:
+   - If `mainModule` has no useful extraction evidence (no setup docs, no variables, no callable subs, no `src_hd`), retry extractors with a module set fallback:
      - `moduleSetForExtraction = all non-excluded, non-product modules`
    - This fallback is generic and must not rely on naming conventions like `-demo`.
 
@@ -120,7 +123,7 @@ Behavior / Steps
        - `ivy-readme-demo-workflows` (scan all inferred `demoModules`)
        - `callable-sub-listing` (scan all candidate modules' `processes/**/*.p.json`)
        - `form-components-listing` (scan all candidate modules' `src_hd` trees)
-      - `ivy-readme-key-features` variables/roles fallback when main module is sparse
+       - `ivy-readme-key-features` setup/variables roles fallback when main module is sparse
     - Normalize to `missing` only after this fallback scan also produces no content.
 
 2.1 Mandatory fragment mapping (must be present before assembly):
@@ -129,7 +132,7 @@ Behavior / Steps
    - `demoIntroSection` <- from `ivy-readme-demo-workflows` (with external links) OR explicit fallback
    - `demoWorkflows` <- from `ivy-readme-demo-workflows`
    - `rolesSection` <- from `ivy-readme-key-features` (extracted from config/roles.xml)
-   - `setupSection` <- from `ivy-readme-key-features` extracted only from `setup.md` (no roles/openapi inline, no non-setup.md fallback)
+   - `setupSection` <- from `ivy-readme-key-features` (setup steps only, no roles/openapi inline)
    - `variablesSection` <- from `ivy-readme-key-features`
    - `openApiSection` <- from `ivy-readme-key-features` (will be placed in Setup by assembler, not separate section)
    - `callableSubSection` <- from `callable-sub-listing`
@@ -153,7 +156,7 @@ Behavior / Steps
    - If a Demo Workflows section is present in docs or can be inferred from demo process files, inject it as a subheading under Demo.
    - Include a Demo intro/body paragraph before Demo Workflows when available (`demoIntroSection`).
    - Keep variables under Setup as a `### Variables` subsection by default; do not create a standalone `## Variables` section unless style profile explicitly requires it.
-   - If `variablesSection` is genuinely missing after extraction, keep `### Variables` with the fenced `@variables.yaml@` block only and do not append any fallback sentence.
+   - If `variablesSection` is genuinely missing after extraction, do not render any fallback sentence under `### Variables`.
    - Do not drop sections when a fragment is empty. Insert `missingSectionFallback` under that heading.
    - Apply assembler fallback rules: keep heading + inject placeholder if status is `missing` or content is empty.
    - Enforce coverage gate: when fragment declares `requiredSubsections`, missing subsections must be reported and rendered with explicit placeholders.
@@ -165,7 +168,7 @@ Behavior / Steps
    - Do not add helper sections such as `## Notes`, `## Generation Info`, or other non-template metadata headings.
 
 4. Sub-skill quality criteria (enforced):
-   - **ivy-readme-key-features**: Extract product intro with image + external links, benefit-driven key features (6 items), roles from config/roles.xml, `setupSection` only from `setup.md`, full variables YAML with comments, OpenAPI spec info, and optional auth/runtime sections exactly as documented.
+   - **ivy-readme-key-features**: Extract product intro with image + external links, benefit-driven key features (6 items), roles from config/roles.xml, complete Setup section with steps, full variables YAML with comments, OpenAPI spec info (goes INTO Setup), and optional auth/runtime sections exactly as documented.
    - **ivy-readme-key-features**: Do not synthesize `### Azure App` heading unless that heading exists in source docs. Keep setup headings source-driven.
    - **ivy-readme-demo-workflows**: Extract demo intro paragraph + external market links BEFORE workflow steps, include module grouping with #### headers, use friendly non-technical step-by-step language, and never output empty module headings.
    - **ivy-readme-demo-workflows**: Prefer `https://market.axonivy.com/...` links over local relative links when both are available in sources.
@@ -197,7 +200,7 @@ Behavior / Steps
    - Then invoke in parallel: `ivy-readme-key-features`, `callable-sub-listing`, `form-components-listing`, `ivy-readme-demo-workflows`, `maven-artifact-listing`, `product-image-summary` using the resolved module paths.
    - **MANDATORY PRE-EXECUTION GATE**: For EACH sub-skill listed above, before producing any fragment output:
      1. Read that sub-skill's `SKILL.md` file to obtain its extraction logic.
-   2. Execute the documented extraction logic directly against the repository source files (process JSON files, config YAML, src_hd, product.json, `setup.md`, etc.).
+     2. Execute the documented extraction logic directly against the repository source files (process JSON files, config YAML, src_hd, product.json, setup docs, etc.).
      3. Only after a genuine extraction attempt may a fragment be marked as `missing`.
      4. A fragment MUST NOT be normalized to `missing` solely because the sub-skill cannot be invoked as a callable tool. The extraction logic from SKILL.md MUST be executed manually instead.
    - Collect all stdout outputs in a single collection.
@@ -207,6 +210,7 @@ Behavior / Steps
 2. **Fragment collection (batch 2 - sequential post-processing):**
    - Parse all sub-skill outputs into fragment objects mapping to mandatory fragment names (see section 2.1).
    - For any sub-skill whose extraction logic was executed and genuinely produced no content (e.g., no `src_hd` directory, no matching process files), auto-normalize to `{ status: "missing", section: "...", content: "- No information was delivered for this section." }`.
+   - Exception: when `section = "variablesSection"`, normalize to `{ status: "missing", section: "variablesSection", content: "" }` so `### Variables` has no fallback sentence.
    - **FORBIDDEN**: Normalizing a fragment to `missing` without first reading the sub-skill SKILL.md and attempting source-file extraction. This is a violation equivalent to skipping the sub-skill entirely.
    - Build complete fragment map WITHOUT user interaction.
    - Populate omitted optional fragments ( `openApiSection`, image fragment) with normalized `missing` entries instead of asking whether they should be skipped.
@@ -231,11 +235,12 @@ Behavior / Steps
 - If user confirmation is requested between steps 1-3 → VIOLATION (autonomous policy violated).
 - If `README.md` is hand-edited or patched after assembly → VIOLATION (assembly-only rule).
 - If `README_DE.md` is hand-edited or patched instead of regenerated via `translate-readme` → VIOLATION.
+- If generated output is appended to existing content (resulting in duplicated full document blocks) → VIOLATION.
 - If `README.md` is not written at all → VIOLATION (must always generate with fragments, even `missing` ones).
 - If `README_DE.md` is not written at all → VIOLATION.
 - If the runtime cannot invoke a sub-skill and the AI does not immediately execute that sub-skill's documented logic itself → VIOLATION.
 - If ANY fragment is normalized to `missing` without a prior read of that sub-skill's SKILL.md and a genuine attempt to extract from repository source files → VIOLATION (extraction-before-normalization rule).
-- If the AI produces a README where ALL or MOST sections contain the fallback placeholder, and the repository contains discoverable source files (process JSON, variables.yaml, `setup.md`, product.json) → VIOLATION (silent skip of extraction step).
+- If the AI produces a README where ALL or MOST sections contain the fallback placeholder, and the repository contains discoverable source files (process JSON, variables.yaml, setup docs, product.json) → VIOLATION (silent skip of extraction step).
 
 Invariants
 ----------

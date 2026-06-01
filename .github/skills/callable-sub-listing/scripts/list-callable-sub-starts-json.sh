@@ -49,18 +49,10 @@ for file in "${files[@]}"; do
         starts: [
           .elements[]?
           | select(.type == "CallSubStart")
-          | ((.config.signature // .name // "callableSub") as $sig
-            | ((.config.input // .config.parameter).params // []) as $in
-            | (.config.result.params // []) as $out
-            | (if ($out | length) > 0
-                then (($out[0].name // "result") + ": " + ($out[0].type // "Object"))
-                else "(none)"
-               end) as $sigResult
-            | {
+          | {
               id: (.id // null),
               name: (.name // null),
-              signature: $sig,
-              signatureLabel: ("- **" + $sig + " -> " + $sigResult + "**"),
+              signature: (.config.signature // null),
               tags: (.tags // []),
               input: (
                 if .config.input then
@@ -96,7 +88,7 @@ for file in "${files[@]}"; do
                   null
                 end
               )
-            })
+            }
         ]
       }
     end

@@ -59,7 +59,7 @@ When the assembler receives a fragment:
 5. **Coverage gate before write**: if fragment declares `requiredSubsections`, mark fragment as `partial` when any are missing and inject explicit placeholder lines for each missing subsection.
 6. **Honor `preserveMode=verbatim`** for setup/auth/variables blocks to avoid dropping long instructional content.
 7. **Placement rule**: `variablesSection` should be rendered under `## Setup` as `### Variables` unless style profile explicitly requires standalone placement.
-8. **Variables missing rule**: If `variablesSection` is `missing` or empty, keep `### Variables` and the `@variables.yaml@` fenced block without appending a fallback sentence.
+8. **Variables missing rule**: If `variablesSection` is `missing` or empty, render no fallback sentence under `### Variables`.
 8. **Demo rule**: Render `demoIntroSection` under `## Demo`, then always render heading `### Demo Workflows` before injecting `demoWorkflows` fragment content (or fallback if missing). The assembler MUST always render heading `### Demo Workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
 9. **Demo link preference**: Prefer `https://market.axonivy.com/...` links when both market and local relative links are present for the same demo service.
 10. **Components hierarchy**: Always render `## Components` as parent heading. `Callable Subprocesses`, `Dialog Components`, `Web Services`, and `Maven Artifacts` must be `###` subsections under it.
@@ -99,7 +99,7 @@ Technical setup instructions derived from the main module's configuration defini
 
 {{variableSection}}
 
-If no variables are found after a genuine extraction attempt, do not add any fallback sentence below `@variables.yaml@`.
+If no variables are found after a genuine extraction attempt, keep `### Variables` without adding fallback text.
 
 ## Components
 

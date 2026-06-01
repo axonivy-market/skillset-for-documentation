@@ -80,12 +80,8 @@ Check the demo implementations we have prepared for the various services from Mi
 ### setupSection
 
 **Sources:**
-1. `setup.md` only
-
-**Source restriction:**
-- `setupSection` must be extracted only from an eligible `setup.md` file.
-- Do not use `README.md`, `doc/**/*.md`, `OBSERVE.md`, or configuration files as fallback input for `setupSection`.
-- Roles, OpenAPI, and variables are separate fragments and must not be used to fabricate or backfill `setupSection`.
+1. `## Setup` section with all subsections (Roles, OpenAPI, Configuration variables, etc.) from README.md
+2. Configuration files: `config/roles.xml`, `config/rest-clients.yaml`, `config/variables.yaml`
 
 **Example output:**
 ```markdown
@@ -101,11 +97,11 @@ Check the demo implementations we have prepared for the various services from Mi
 ```
 
 ```
-**Required subsections:** only the subsections that actually exist in `setup.md`
+**Required subsections:** Roles, OpenAPI, Configuration variables
 
-**Status:** `success` if `setup.md` is found and extracted, `missing` otherwise.
+**Status:** `success` if all subsections found, `partial` if some missing.
 
-**Preserve mode:** `verbatim` to keep exact formatting from source `setup.md`
+**Preserve mode:** `verbatim` to keep exact formatting from source README.md
 
 ### variablesSection
 
@@ -152,7 +148,7 @@ https://graphexplorerapi.azurewebsites.net/openapi?tags=me.user,me.calendar,user
 2. **Extract productDescriptionSection** - first 2-3 paragraphs before ### Key features
 3. **Extract keyFeatures** - content from ### Key features section
 4. **Extract demoIntroSection** - paragraph text under ## Demo before demo workflows
-5. **Extract setupSection** - from `setup.md` only; never from README/docs/config fallbacks
+5. **Extract setupSection** - complete ## Setup section with all subsections
 6. **Extract variablesSection** - read `config/variables.yaml` verbatim
 7. **Extract openApiSection** - read OpenAPI URL from `config/rest-clients.yaml`
 8. **Return all as JSON fragments** conforming to the contract above

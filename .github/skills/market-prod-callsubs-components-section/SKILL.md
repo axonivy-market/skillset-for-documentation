@@ -1,10 +1,10 @@
 ---
-name: generate-ivy-readme-components-section
+name: market-prod-callsubs-components-section
 description: >
   Generate and update only the ## Components section (Callable Subprocesses,
   Dialog Components, Web Services, Maven Artifacts) in both README.md (English)
   and README_DE.md (German) for an Axon Ivy Maven product module.
-  Invoke with: /generate-ivy-readme-components-section
+  Invoke with: /market-prod-callsubs-components-section
 argument-hint: '[optional: workspace root path] [optional: mainModule] [optional: targetReadme]'
 user-invocable: true
 ---
@@ -71,19 +71,24 @@ extraction logic directly against repository source files:
 2. **formComponentSection** — scan `<mainModule>/src_hd/**`
    - Extract `.d.json` fields (name, type) as source-of-truth.
    - Extract CMS descriptions from `cms_en.yaml` where available.
+  - `Component type` must be one of exactly three values only:
+    - `Component` when `.xhtml` contains `<cc:interface ...>`
+    - `UI dialog` when `.xhtml` contains `<ui:composition ...>`
+    - `Form dialog` when sibling file name matches `*.f.json`
    - Format as documented in `form-components-listing` SKILL.md.
    - If none found: `status: missing`, content: `- No form components delivered by this extension.`
 
 3. **openApiSection** — read `<mainModule>/config/rest-clients.yaml`
-   - Extract `OpenAPI.SpecUrl` and `OpenAPI.Namespace` for every entry.
-   - Present as bullet list: `- **[ClientName]:** [SpecUrl] (Namespace: [Namespace])`.
+  - Extract `OpenAPI.SpecUrl` and `OpenAPI.Namespace` for every entry.
+  - Only accept `SpecUrl` values that start with `http://` or `https://`.
+  - Render with markdown image snippet format: `![ClientName](SpecUrl)`.
+  - Keep namespace when available, e.g. `![ClientName](SpecUrl) (Namespace: [Namespace])`.
    - If none found: `status: missing`, content: `- No information was delivered for this section.`
 
 4. **mavenArtifactSection** — read `<productModule>/product.json`
    - Extract `maven-dependency` and `maven-import` artifacts ordered by root `pom.xml` module order.
    - Mark `maven-import` artifacts with `importInWorkspace == false` as optional.
-  - Render numbered list with XML `<dependency>` blocks (no `<version>` element).
-  - Numbered list labels must show only `artifactId` (for example `smart-workflow-openai`), not `groupId:artifactId`.
+   - Render numbered list with XML `<dependency>` blocks (no `<version>` element).
    - If none found: `status: missing`, content: `- No information was delivered for this section.`
 
 ### Step 3 — Build English Components section
@@ -173,7 +178,6 @@ Standard German heading translations used in this section:
 | `Component type:` | `Komponententyp:` |
 | `Fields:` | `Felder:` |
 | `Namespace:` | `Namespace:` |
-| `Where used:` | `Verwendung:` |
 | `Purpose:` | `Zweck:` |
 
 Apply tone: `du`/`dein`, short direct sentences, benefit-led bullets, no passive voice.

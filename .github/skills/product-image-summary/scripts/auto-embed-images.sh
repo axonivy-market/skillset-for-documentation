@@ -109,6 +109,22 @@ snippet_exists() {
   grep -F -- "$file_ref" "$README" >/dev/null 2>&1
 }
 
+# Validate local image path before inserting markdown snippet.
+# A valid path must be relative, safe, and resolvable from PRODUCT_DIR.
+is_valid_local_image_path() {
+  local rel_path="$1"
+
+  [[ -n "$rel_path" ]] || return 1
+  [[ "$rel_path" != *$'\n'* && "$rel_path" != *$'\r'* ]] || return 1
+  [[ "$rel_path" != /* && "$rel_path" != \\* ]] || return 1
+  [[ ! "$rel_path" =~ ^[A-Za-z]:[/\\] ]] || return 1
+  [[ "$rel_path" != *".."* ]] || return 1
+  [[ "$rel_path" != *"("* && "$rel_path" != *")"* ]] || return 1
+
+  [[ -f "${PRODUCT_DIR}/${rel_path}" ]] || return 1
+  return 0
+}
+
 # Infer step number from filename suffix (e.g. extraction4, flow-2, screenshot_03).
 infer_step_from_filename() {
   local filename="$1"
@@ -338,7 +354,13 @@ while IFS= read -r -d '' img; do
     placement="demo:workflow-${inferred_workflow}"
   fi
 
-  snippet="![${filename%.*}](images/${filename})"
+  snippet_path="images/${filename}"
+  if ! is_valid_local_image_path "$snippet_path"; then
+    echo "Skipping invalid image path for embedding: ${snippet_path}" >&2
+    continue
+  fi
+
+  snippet="![${filename%.*}](${snippet_path})"
   if snippet_exists "$snippet"; then
     echo "Skipping existing snippet for $filename" >&2
     continue

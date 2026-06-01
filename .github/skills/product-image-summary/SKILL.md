@@ -249,6 +249,7 @@ Embedding guidance for assemblers (required):
   - `setup` -> insert inside `## Setup` close to the related step or at top of `### Variables` if the image documents configuration
 - When multiple images share the same placement, assembler may insert them sequentially in the order discovered.
 - Only when `standalone=true` should the assembler create a `## Images` section; otherwise images must be injected inline into related sections.
+- Path safety gate (mandatory): before emitting or embedding any image snippet, validate that the image path is syntactically safe and resolvable from the target README location. If a path is malformed or unresolved, skip that image and continue without inserting a broken snippet.
 
 Output must conform to [output-format.md](../references/output-format.md) contract. Use JSON status field for metadata (not HTML comments).
 

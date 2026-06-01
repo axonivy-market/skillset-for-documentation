@@ -65,32 +65,22 @@ fi
     jq -r '
       .elements[]?
       | select(.type == "CallSubStart")
-      | (.config.signature // .name // "callableSub") as $sig
-      | ((.config.input // .config.parameter).params // []) as $in
-      | (.config.result.params // []) as $out
-      | (if ($out | length) > 0
-          then (($out[0].name // "result") + ": " + ($out[0].type // "Object"))
-          else "(none)"
-         end) as $sigResult
-        | "- **" + $sig + " -> " + $sigResult + "**\n\n"
-      + "- Input:\n"
-      + (if ($in | length) > 0
-          then ($in | map("  - `" + (.name // "") + "` (" + (.type // "Object") + ")"
-            + (if ((.desc // "") != "") then " - " + .desc else "" end)) | join("\n"))
-          else "  - (none)"
-         end)
+      | "- Signature: " + (.config.callSignature // .config.signature // "") + "\n"
+      + "  Input: "
+      + (if (.config.input // .config.parameter) then
+         ((((.config.input // .config.parameter).params // [])
+            | map((.name // "") + ": " + (.type // ""))
+            | join(", "))
+          | if . == "" then "none" else . end)
+        else "none" end) + "\n"
+      + "  Result: "
+      + (if .config.result then
+          (((.config.result.params // [])
+            | map((.name // "") + ": " + (.type // ""))
+            | join(", "))
+          | if . == "" then "none" else . end)
+        else "none" end)
       + "\n"
-      + "- Result:\n"
-      + (if ($out | length) > 0
-          then ($out | map("  - `" + (.name // "") + "` (" + (.type // "Object") + ")"
-            + (if ((.desc // "") != "") then " - " + .desc else "" end)) | join("\n"))
-          else "  - (none)"
-         end)
-      + "\n"
-      + (if ((.visual.description // "") != "")
-          then "- Description: " + .visual.description + "\n"
-          else ""
-         end)
     ' "$file"
 
     echo
