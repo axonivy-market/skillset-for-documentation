@@ -17,6 +17,11 @@ Generate a repeatable documentation listing from process files where:
 - Optional file glob argument. Default: `**/*.p.json` (anchored to mainModule/processes/)
 - Optional output file path. If omitted, print to stdout
 
+Performance note:
+- Prefer module-anchored invocation to avoid repository-wide scans.
+- Recommended invocation: `bash .../list-callable-sub-starts-json.sh <mainModule> [glob] [output-file]`
+- Backward-compatible glob-only mode still works but is slower on large monorepos.
+
 ## Procedure
 
 1. **Glob pattern anchoring:**
@@ -53,8 +58,7 @@ Generate a repeatable documentation listing from process files where:
 3.1 **Completeness gate (mandatory):**
         - For each scanned process file, compute `totalCallSubStart`.
         - Compute `renderedCallSubStart` in output.
-        - If `renderedCallSubStart < totalCallSubStart`, set status to `partial` and append explicit placeholders for missing entries:
-            - `- Callable sub detected but full parameter mapping could not be resolved from source.`
+        - If `renderedCallSubStart < totalCallSubStart`, set status to `partial`.
         - Never emit generic placeholders such as "callable subs present in file".
         - Only set status `missing` when no CALLABLE_SUB file with CallSubStart exists after a genuine scan. If so, synthesize a block: "No connector processes delivered by this extension."
 
@@ -105,6 +109,10 @@ Example markdown content field:
 - Input section: list all input parameters with types and descriptions, if none, state `(none)`
 - Result section: list all output parameters with types and descriptions, if none, state `(none)`
 - Descriptions pulled from `visual.description` or parameter `desc` fields when available
+- Separator safety: only append ` - [description]` when a non-empty normalized description exists.
+    - Normalize description by trimming whitespace.
+    - Treat placeholder-only values as empty (for example: `-`, `--`, `—`, `n/a`, `N/A`).
+    - Never emit dangling suffixes like `` `param` (Type) - ``.
 - Keep format, heading, and grouping consistent
 - Deterministic order: files alphabetically, then CallSubStart elements in source order
 

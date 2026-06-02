@@ -96,7 +96,13 @@ print_entry() {
       .elements[]?
       | select(.type == "HtmlDialogStart" or .type == "HtmlDialogMethodStart" or .type == "HtmlDialogStart")
       | select(.config.signature == "start")
-      | .config.input.params[]? | "   - `" + .name + "` (" + .type + ")" + (if ((.desc // "") != "") then " — " + .desc else "" end)' "$pfile" 2>/dev/null || true)
+      | .config.input.params[]?
+      | ((.desc // "") | gsub("^\\s+|\\s+$"; "")) as $d
+      | "   - `" + .name + "` (" + .type + ")"
+        + (if ($d != "" and $d != "-" and $d != "--" and $d != "—" and ($d | ascii_downcase) != "n/a")
+           then " — " + $d
+           else ""
+           end)' "$pfile" 2>/dev/null || true)
     if [[ -n $proc_params ]]; then
       echo "- **Fields:**"
       echo "$proc_params"
@@ -115,22 +121,28 @@ comp_tmp=$(mktemp)
 out_tmp=$(mktemp)
 
 # Collect dialog/component directories from all roots; exclude webContent.
+# Performance: scan unique candidate directories once, then resolve metadata per directory.
 for ROOT in "${ROOTS[@]}"; do
   MODULE_DIR=$(realpath -m "$(dirname "$ROOT")")
 
-  while IFS= read -r -d '' xhtml; do
-    case "$xhtml" in
-      *[/]webContent/*|*[/]webcontent/*)
-        continue
-        ;;
-    esac
+  while IFS= read -r dir; do
+    [[ -z "$dir" ]] && continue
 
-    dir=$(dirname "$xhtml")
+    # Choose the first xhtml file in directory as representative.
+    xhtml=$(find "$dir" -maxdepth 1 -type f -name '*.xhtml' | head -n1 || true)
+    [[ -z "$xhtml" ]] && continue
+
     pf=$(find "$dir" -maxdepth 1 -type f \( -name '*Process.p.json' -o -name '*.p.json' \) | head -n1 || true)
-    if [[ -n "$pf" ]] || find "$dir" -maxdepth 1 -type f -name '*.f.json' | grep -q .; then
+    ff=$(find "$dir" -maxdepth 1 -type f -name '*.f.json' | head -n1 || true)
+    if [[ -n "$pf" || -n "$ff" ]]; then
       echo "$MODULE_DIR|$dir|$xhtml|$pf" >> "$comp_tmp"
     fi
-  done < <(find "$ROOT" -type f -name '*.xhtml' -print0)
+  done < <(
+    find "$ROOT" -type f -name '*.xhtml' -print |
+      grep -Ev '/web[Cc]ontent/' |
+      sed 's|/[^/]*$||' |
+      sort -u
+  )
 done
 
 {

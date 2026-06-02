@@ -14,8 +14,12 @@ If images are found, suggest placement (intro/demo/dashboard) and synthesize a m
 
 ## Inputs
 
-- **Required:** Exact product module name (e.g., `open-weather-connector-product`) — the script looks for `{name}/images/` then falls back to `{name}/`
+- **Required:** Exact product module name (e.g., `open-weather-connector-product`) — the script looks for `{name}/images/`, `{name}/doc/img`, `{name}/doc/images`, `{name}/docs/img`, `{name}/docs/images`
 - **Optional:** Output file path — omit to print to stdout
+
+Performance note:
+- By default, the script does not scan the whole module root recursively.
+- To force legacy full-root scanning (slower), set environment variable: `ALLOW_ROOT_IMAGE_SCAN=1`.
 
 ### External image discovery (mandatory)
 

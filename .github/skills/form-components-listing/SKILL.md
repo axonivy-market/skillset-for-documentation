@@ -15,6 +15,10 @@ Enforce one fixed markdown shape per component so downstream README assembly can
 - Optional path to the `src_hd` directory of the main module (e.g. `my-connector/src_hd`). Defaults to scanning the current workspace.
 - Optional `includeDemoModules` flag (default: `false`). When `false`, scan only the provided main module path.
 
+Performance note:
+- For large monorepos, always pass `<mainModule>/src_hd` (or `<mainModule>`) explicitly.
+- Workspace-root scans are significantly slower and should be used only for diagnostics.
+
 ## Extraction Rules
 
 1. **Scan for form components** in `src_hd` directory
@@ -63,6 +67,10 @@ Enforce one fixed markdown shape per component so downstream README assembly can
         - `fieldName1` (FieldType1) — [Description: what this field is used for, e.g., "Email recipients list"]
         - `fieldName2` (FieldType2) — [Description: e.g., "Message subject line"]
      ```
+   - **Separator safety:** append ` — [description]` only when description is non-empty after normalization.
+     - Trim whitespace before checking emptiness.
+     - Treat placeholder-only values as empty (`-`, `--`, `—`, `n/a`, `N/A`).
+     - Never emit dangling suffixes like `` `field` (Type) — ``.
    - **Purpose section (mandatory):**
      ```markdown
      - **Purpose:** [One user-facing sentence explaining what this component does and why users need it]

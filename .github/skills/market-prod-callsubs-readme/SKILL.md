@@ -45,6 +45,16 @@ Configuration defaults
 - `styleProfilePolicy`: `infer-from-repo`
 - `completenessGate`: `strict`
 
+Runtime optimization rules (mandatory)
+--------------------------------------
+- Use module-scoped extraction paths whenever possible:
+   - `callable-sub-listing`: scan `<mainModule>/processes/**` first (avoid `./**/*.p.json` global scans)
+   - `form-components-listing`: scan `<mainModule>/src_hd` first (avoid workspace-wide scan by default)
+   - `product-image-summary`: prefer canonical image folders (`images`, `doc/img`, `docs/images`) before any full-root fallback
+- Run independent extractors in parallel after module discovery.
+- Avoid repeated scans of the same folder tree in one run; reuse already collected file lists in-memory inside the same orchestration step.
+- Keep strict completeness behavior; do not use fragment hash-cache shortcuts.
+
 Sub-skill protocol
 ------------------
 For every **APPLY SKILL: `<name>`** instruction in the steps below:

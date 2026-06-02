@@ -262,13 +262,39 @@ build_callable_sub_section() {
       # Inputs
       local in_block
       in_block=$(echo "$entry" | jq -r \
-        '.inputs | if length == 0 then "    - Input: (none)" else "    - Input:\n" + (map("        - `" + .name + "` (" + .type + ")" + (if (.desc // "") != "" then " - " + .desc else "" end)) | join("\n")) end')
+        '.inputs
+        | if length == 0 then "    - Input: (none)"
+          else "    - Input:\n" + (
+            map(
+              (.desc // "" | gsub("^\\s+|\\s+$"; "")) as $d
+              | "        - `" + .name + "` (" + .type + ")"
+                + (if ($d != "" and $d != "-" and $d != "--" and $d != "—" and ($d | ascii_downcase) != "n/a")
+                   then " - " + $d
+                   else ""
+                   end)
+            )
+            | join("\n")
+          )
+          end')
       content+="${in_block}"$'\n'
 
       # Results
       local res_block
       res_block=$(echo "$entry" | jq -r \
-        '.results | if length == 0 then "    - Result: (none)" else "    - Result:\n" + (map("        - `" + .name + "` (" + .type + ")" + (if (.desc // "") != "" then " - " + .desc else "" end)) | join("\n")) end')
+        '.results
+        | if length == 0 then "    - Result: (none)"
+          else "    - Result:\n" + (
+            map(
+              (.desc // "" | gsub("^\\s+|\\s+$"; "")) as $d
+              | "        - `" + .name + "` (" + .type + ")"
+                + (if ($d != "" and $d != "-" and $d != "--" and $d != "—" and ($d | ascii_downcase) != "n/a")
+                   then " - " + $d
+                   else ""
+                   end)
+            )
+            | join("\n")
+          )
+          end')
       content+="${res_block}"$'\n'
 
       # Optional visual description
@@ -289,13 +315,6 @@ build_callable_sub_section() {
                     | map({ name: (.name // ""), type: (.type // ""), desc: (.desc // "") }))
         }
     ' "$pfile" 2>/dev/null)
-    # If some CallSubStart elements were detected but not rendered, append placeholders
-    if [[ $file_rendered -lt $start_count ]]; then
-      local missing=$((start_count - file_rendered))
-      for ((i=0;i<missing;i++)); do
-        content+="- Callable sub detected but full parameter mapping could not be resolved from source."$'\n\n'
-      done
-    fi
   done < <(find "${processes_dir}" -type f -name '*.p.json' -print0 | sort -z)
 
   if [[ $CALLABLE_RENDERED -eq 0 ]]; then
@@ -373,7 +392,14 @@ build_dialog_components_section() {
         | select((.config.signature // "") == "start")
         | .config.input.params[]?
       ]
-      | map("    - `" + (.name // "") + "` (" + (.type // "") + ")" + (if ((.desc // "") != "") then " — " + .desc else "" end))
+      | map(
+          ((.desc // "") | gsub("^\\s+|\\s+$"; "")) as $d
+          | "    - `" + (.name // "") + "` (" + (.type // "") + ")"
+            + (if ($d != "" and $d != "-" and $d != "--" and $d != "—" and ($d | ascii_downcase) != "n/a")
+               then " — " + $d
+               else ""
+               end)
+        )
       | join("\n")
     ' "$pfile" 2>/dev/null || true)
 
