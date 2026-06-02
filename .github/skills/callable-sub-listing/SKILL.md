@@ -42,7 +42,7 @@ Generate a repeatable documentation listing from process files where:
     - Format: `- **Signature**: [name]([paramType] [paramName], [paramType] [paramName]) -> [resultVar]: [resultType]`
       - Multiple params separated by `, `
       - If no inputs: state `()` with no params listed
-      - If no result: state `-> (none)` or omit result entirely
+    - If no result: omit the signature result suffix entirely (do not print `-> (none)`)
     - Example: `- **Signature**: writeMail(msgraph.connector.NewMail mail) -> message: com.microsoft.graph.MicrosoftGraphMessage`
     - List input and result parameters with types, descriptions, and mapping
     - If there are no input/result parameters, clearly state `(none)`

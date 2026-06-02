@@ -382,8 +382,7 @@ build_dialog_components_section() {
       content+="- **Fields:**"$'\n'
       content+="${fields_md}"$'\n'
     else
-      content+="- **Fields:**"$'\n'
-      content+="    - (none declared)"$'\n'
+      content+="- **Fields:** - (none)"$'\n'
     fi
 
     # Enrich with CMS description when available
@@ -601,6 +600,7 @@ translate_to_de() {
     -e 's/^### Dialog Components$/### Dialogkomponenten/' \
     -e 's/^### Web Services$/### Web-Services/' \
     -e 's/^### Maven Artifacts$/### Maven-Artefakte/' \
+    -e 's/^- \*\*Signature:\*\*/- **Signatur:**/g' \
     -e 's/    - Input:$/    - Eingaben:/' \
     -e 's/    - Input: (none)/    - Eingaben: (keine)/' \
     -e 's/    - Result:$/    - Ergebnis:/' \
@@ -613,6 +613,10 @@ translate_to_de() {
     -e 's/(inferred purpose)/(abgeleiteter Zweck)/g' \
     -e 's/\*\*Component type:\*\*/**Komponententyp:**/g' \
     -e 's/\*\*Fields:\*\*/**Felder:**/g' \
+    -e 's/- \*\*Felder:\*\* - (none)/- **Felder:** - (keine)/g' \
+    -e 's/- \*\*Fields:\*\* - (none)/- **Felder:** - (keine)/g' \
+    -e 's/- \*\*Felder:\*\* - (none declared)/- **Felder:** - (keine)/g' \
+    -e 's/- \*\*Fields:\*\* - (none declared)/- **Felder:** - (keine)/g' \
     -e 's/\*\*Purpose:\*\*/**Zweck:**/g' \
     -e 's/    - Description:/    - Beschreibung:/g'
 }

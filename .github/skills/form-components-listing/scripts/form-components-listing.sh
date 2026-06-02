@@ -97,15 +97,14 @@ print_entry() {
       | select(.type == "HtmlDialogStart" or .type == "HtmlDialogMethodStart" or .type == "HtmlDialogStart")
       | select(.config.signature == "start")
       | .config.input.params[]? | "   - `" + .name + "` (" + .type + ")" + (if ((.desc // "") != "") then " — " + .desc else "" end)' "$pfile" 2>/dev/null || true)
-    echo "- **Fields:**"
     if [[ -n $proc_params ]]; then
+      echo "- **Fields:**"
       echo "$proc_params"
     else
-      echo "   - (none declared)"
+      echo "- **Fields:** - (none)"
     fi
   else
-    echo "- **Fields:**"
-    echo "   - (none declared)"
+    echo "- **Fields:** - (none)"
   fi
 
   echo "- **Purpose:** ${purpose}"

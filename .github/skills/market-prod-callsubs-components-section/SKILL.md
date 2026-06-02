@@ -77,6 +77,7 @@ extraction logic directly against repository source files:
     - `Component dialog` when `.xhtml` contains `<cc:interface ...>`
     - `UI dialog` when `.xhtml` contains `<ui:composition ...>`
     - `Form dialog` when sibling file name matches `*.f.json`
+    - If a component has no declared start params, render fields in one line as: `- **Fields:** - (none)`
    - Format as documented in `form-components-listing` SKILL.md.
    - If none found: `status: missing`, content: `- No form components delivered by this extension.`
 
@@ -166,6 +167,7 @@ Standard German heading translations used in this section:
 | `### Dialog Components` | `### Dialogkomponenten` |
 | `### Web Services` | `### Web-Services` |
 | `### Maven Artifacts` | `### Maven-Artefakte` |
+| `- **Signature:**` | `- **Signatur:**` |
 | `- Input:` | `- Eingaben:` |
 | `- Result:` | `- Ergebnis:` |
 | `- No information was delivered for this section.` | `- Es wurden keine Informationen für diesen Abschnitt geliefert.` |
@@ -177,6 +179,7 @@ Standard German heading translations used in this section:
 | `(inferred purpose)` | `(abgeleiteter Zweck)` |
 | `Component type:` | `Komponententyp:` |
 | `Fields:` | `Felder:` |
+| `- **Fields:** - (none)` | `- **Felder:** - (keine)` |
 | `Namespace:` | `Namespace:` |
 | `Purpose:` | `Zweck:` |
 
@@ -257,7 +260,8 @@ Notes:
 
 - Scope strictly limited to the `## Components` section.
 - Callable sub signatures are extracted with full parameter names and types.
-- Form component fields come from `.d.json` files only (no fabrication).
+- Form component fields come from dialog `start` signatures (`config.input.params[]`); if none exist, render `- **Fields:** - (none)`.
+- German translation must localize callable-sub labels (for example `Signature`, `Input`, `Result`) while preserving parameter types and names.
 - Maven artifact blocks contain `<groupId>`, `<artifactId>`, `<type>` only (no `<version>`).
 - German section uses project CMS translations when available; falls back to the
   translation table defined in Step 5.

@@ -68,10 +68,9 @@ Enforce one fixed markdown shape per component so downstream README assembly can
      - **Purpose:** [One user-facing sentence explaining what this component does and why users need it]
      ```
    - **Forbidden keys in final markdown:** `Parameter`, `Main feature/logic`, `UI attributes`, `Paths`
-   - If no start signature fields are present, still render the same section shape:
+   - If no start signature fields are present, render this exact single-line placeholder:
      ```markdown
-     - **Fields:**
-        - (none declared)
+     - **Fields:** - (none)
      ```
    - If no description can be extracted, still render:
      ```markdown

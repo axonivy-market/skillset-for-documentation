@@ -23,8 +23,7 @@ For each dialog or form component, emit exactly one block with this structure an
 - If no fields are declared in the start signature, render:
 
 ```markdown
-- **Fields:**
-  - (none declared)
+- **Fields:** - (none)
 ```
 
 - If no purpose can be extracted from CMS, XHTML, or process metadata, render:
@@ -48,7 +47,6 @@ Do not emit any of the following labels in the final markdown:
 #### WriteMail
 - **Namespace:** msgraph.mail.demo.WriteMail
 - **Component type:** UI dialog
-- **Fields:**
-  - (none declared)
+- **Fields:** - (none)
 - **Purpose:** Compose a mail, add or remove recipients, and send the message.
 ```

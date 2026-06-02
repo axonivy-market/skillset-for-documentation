@@ -62,9 +62,13 @@ tokens_from_text() {
 }
 
 # Workflow headings from README (preferred source).
+# Only read headings that live under the Demo section so the script works
+# whether the README uses a single flattened demo module or multiple module groups.
 read_workflow_headings_from_readme() {
   awk '
-    /^#####\s+/ {
+    /^##[[:space:]]+Demo([[:space:]]|$)/ { inDemo=1; next }
+    inDemo && /^##[[:space:]]+/ { inDemo=0 }
+    inDemo && /^#####\s+/ {
       h=$0
       sub(/^#####\s+/, "", h)
       if (length(h) > 0) print h

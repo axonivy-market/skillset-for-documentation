@@ -68,7 +68,7 @@ for file in "${files[@]}"; do
                 + "("
                 + $inputSig
                 + ")"
-                + (if $resultSig == "" then " -> (none)" else " -> " + $resultSig end)
+                + (if $resultSig == "" then "" else " -> " + $resultSig end)
               ),
               tags: (.tags // []),
               input: (

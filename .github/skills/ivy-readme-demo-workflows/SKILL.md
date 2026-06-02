@@ -100,6 +100,12 @@ Generate `## Demo` body from demo starts.
      ```
    - This prevents empty demo subsections such as `#### Module` followed directly by the next top-level section.
 
+3.3.1 **Single-module flattening rule (mandatory):**
+  - If the demo scan yields exactly one demo module group, omit the top-level `#### [Module Name] ([module-path])` wrapper entirely.
+  - Render the workflow blocks for that single module directly under `### Demo Workflows`.
+  - If the scan yields more than one demo module group, keep the `#### [Module Name] ([module-path])` wrappers unchanged.
+  - This rule only affects the outer module wrapper; workflow headings remain `##### [Friendly Workflow Name]`.
+
 3.1 **Completeness gate (mandatory):**
    - Count extracted `RequestStart` entries per module.
    - Count rendered workflow blocks per module.
@@ -159,7 +165,7 @@ Output TWO fragments:
 {
    "section": "demoWorkflows",
    "status": "success|partial|missing",
-   "content": "#### [Service/Module Name] ([module-path])\n\n##### [Friendly Workflow Name]\n\n1. [User action or observable outcome]\n2. [What user sees]\n3. [What user can do]\n4. [Next step or result]\n5. [Docker/deployment callout if available]"
+  "content": "#### [Service/Module Name] ([module-path])\n\n##### [Friendly Workflow Name]\n\n1. [User action or observable outcome]\n2. [What user sees]\n3. [What user can do]\n4. [Next step or result]\n5. [Docker/deployment callout if available]"
 }
 ```
 
@@ -201,7 +207,7 @@ Example markdown content for demoWorkflows field (generated from RequestStart me
 **Output format rules:**
 - Return JSON fragment with `section=demoWorkflows`, `status`, and markdown `content`
 - The `demoWorkflows` fragment `content` MUST NOT include heading `### Demo Workflows`; only include grouped module blocks (`#### ...`) and workflow step blocks.
-- Module heading: `#### [Service/Module Name] ([module-path])`
+- Module heading: `#### [Service/Module Name] ([module-path])` when more than one demo module is present; omit the wrapper when only one module is found
 - Workflow subheading: `##### [Friendly Workflow Name]` (extracted from RequestStart `config.request.name`)
 - Workflow steps: Numbered 1–N (typically 3–5 steps, adapt per workflow)
   - Each step focuses on **user action or observable outcome**, not internal process mechanics

@@ -80,7 +80,7 @@ fi
             + "("
             + $inputSig
             + ")"
-            + (if $resultSig == "" then " -> (none)" else " -> " + $resultSig end)
+            + (if $resultSig == "" then "" else " -> " + $resultSig end)
             + "\n"
         )
       + "  Input: "
