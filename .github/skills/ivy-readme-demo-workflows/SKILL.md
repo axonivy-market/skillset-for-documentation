@@ -47,7 +47,7 @@ Generate `## Demo` body from demo starts.
       - Use generic template: "Check the demo implementations provided. Visit documentation to learn more."
    - If found, return as `demoIntroSection` fragment with `status: success`.
    - If only workflow steps available: return `status: partial` (workflows present, no intro)
-  - **MANDATORY:** When extracting demoWorkflows, do NOT include any content from demoIntroSection. Only include workflow blocks and their steps; each workflow should be rendered as a heading followed by a numbered step list (no additional subheading required).
+   - **MANDATORY:** When extracting demoWorkflows, do NOT include any content from demoIntroSection. Only include workflow blocks (##### ...) and their steps.
 
 1. **For each demo module in demoModules array:**
    - Scan `<demoModule>/processes/**/*.p.json` for all files (recursive)
@@ -56,6 +56,12 @@ Generate `## Demo` body from demo starts.
 
 2. **Extract workflow metadata:**
    - Request name and description from `config.request.name` and `config.request.description`, resolved using the CMS resolution rule above according to the `language` input.
+  - **Normalize workflow display name (mandatory):**
+    - Build a rendered workflow title from `config.request.name` after trimming whitespace.
+    - Strip numeric prefixes from the rendered workflow title using regex: `^\d+\.\s*`.
+    - Also strip multi-level numeric prefixes (for example `1.1`, `2.3.4`) using regex: `^\d+(?:\.\d+)*\.\s*`.
+    - If normalization results in an empty title, fall back to `RequestStart.name`, then `config.signature`.
+    - Keep the original source value in evidence/debug context only; never render numeric-prefixed titles in README workflow headings.
    - Connected callable subs from `SubProcessCall` elements (format: `<processName>:<callableSubName>()`)
    - Tags (for quality hints, not filtering)
 
@@ -68,17 +74,23 @@ Generate `## Demo` body from demo starts.
      - Observable outcome: "You'll see [dialog/form/data]", "Results display [information]"
    - **Launch rule:** Use friendly `RequestStart` display name, never internal file names (for example, avoid `.ivp` names in user-facing prose)
    - **Do NOT include:** callable sub names in user-facing steps (e.g., no "(calls `processName:callableSubName()`)") 
-   - **Do include:** friendly RequestStart display names from `config.request.name`, observable UI elements (dialogs, forms, buttons)
+   - **Do include:** normalized friendly RequestStart display names from `config.request.name`, observable UI elements (dialogs, forms, buttons)
+   - **Structure stability (mandatory):**
+     - Keep heading hierarchy deterministic: module wrapper `#### ...`, workflow heading `##### ...`, then ordered steps.
+     - Emit exactly one blank line between workflow heading and the first step.
+     - Do not emit empty headings (`####` or `#####` without text).
+     - Do not promote/demote heading levels based on source numbering.
    - **Docker/deployment:** If available in module config or dockerfile, mention in final step (e.g., "If Docker deployment is available, [action]")
    - Template example (adapt to actual RequestStart data):
      ```
-     #### [Friendly Workflow Name from RequestStart]
+    ##### [Normalized Friendly Workflow Name from RequestStart]
      1. Launch the process from the menu
      2. You'll see a [dialog/form/interface] with [observable elements]
      3. Perform action: [user action like fill fields, click button]
      4. Review the [results/output/confirmation]
      5. Optional: Docker/deployment-specific next steps
      ```
+   - Group all workflows for one module under its #### Module Name header
 
 3.2 **Merge behavior with existing `## Demo` section (mandatory):**
    - Compare generated workflows against currently documented workflows in the product README.
@@ -99,23 +111,18 @@ Generate `## Demo` body from demo starts.
      ```
    - This prevents empty demo subsections such as `#### Module` followed directly by the next top-level section.
 
-3.3.1 **Workflow markdown structure rule (mandatory):**
-  - Render each workflow consistently as:
-    ```
-    #### [Friendly Workflow Name]
-    1. Step one
-    2. Step two
-    ```
-  - Do not insert an intermediate `##### Steps` subheading. Keep the markup compact and consistent across projects.
-  - Do not prepend a separate module wrapper heading in the default flow.
-  - If repository style profile explicitly requires module grouping, keep grouping but still enforce workflow heading depth consistency within each group.
+3.3.1 **Single-module flattening rule (mandatory):**
+  - If the demo scan yields exactly one demo module group, omit the top-level `#### [Module Name] ([module-path])` wrapper entirely.
+  - Render the workflow blocks for that single module directly under `### Demo Workflows`.
+  - If the scan yields more than one demo module group, keep the `#### [Module Name] ([module-path])` wrappers unchanged.
+  - This rule only affects the outer module wrapper; workflow headings remain `##### [Friendly Workflow Name]`.
 
 3.1 **Completeness gate (mandatory):**
    - Count extracted `RequestStart` entries per module.
    - Count rendered workflow blocks per module.
    - If rendered count is lower than extracted count, set fragment status to `partial` and append one placeholder block per missing workflow:
      ```
-    #### Workflow [N]
+     ##### Workflow [N]
      - Workflow detected but mapping details were not fully resolved from source process model.
      ```
    - Only set `missing` when no `RequestStart` entries exist after a genuine scan.
@@ -151,7 +158,7 @@ Generate `## Demo` body from demo starts.
 
 
 
-4. **Return JSON fragments conforming to [output-format.md](./references/output-format.md), with markdown in `content`:**
+4. **Return JSON fragments conforming to [output-format.md](../references/output-format.md), with markdown in `content`:**
 
 Output TWO fragments:
 
@@ -169,7 +176,7 @@ Output TWO fragments:
 {
    "section": "demoWorkflows",
    "status": "success|partial|missing",
-  "content": "#### [Friendly Workflow Name]\n\n1. [User action or observable outcome]\n2. [What user sees]\n3. [What user can do]\n4. [Next step or result]\n5. [Docker/deployment callout if available]"
+  "content": "#### [Service/Module Name] ([module-path])\n\n##### [Friendly Workflow Name]\n\n1. [User action or observable outcome]\n2. [What user sees]\n3. [What user can do]\n4. [Next step or result]\n5. [Docker/deployment callout if available]"
 }
 ```
 
@@ -188,7 +195,9 @@ Check the demo implementations provided:
 Example markdown content for demoWorkflows field (generated from RequestStart metadata):
 
 ```markdown
-#### [Workflow Name from RequestStart.config.request.name]
+#### [Service Name] (demo-module-path)
+
+##### [Workflow Name from RequestStart.config.request.name]
 
 1. Launch the process from the menu or dashboard
 2. You'll see a [form/dialog/interface] displaying [observable data/elements]
@@ -196,7 +205,7 @@ Example markdown content for demoWorkflows field (generated from RequestStart me
 4. [Observable outcome]: system processes request and shows [results/confirmation]
 5. If Docker deployment is configured: [available next step]
 
-#### [Another Workflow Name]
+##### [Another Workflow Name]
 
 1. Launch process
 2. [Interface description]
@@ -208,14 +217,17 @@ Example markdown content for demoWorkflows field (generated from RequestStart me
 
 **Output format rules:**
 - Return JSON fragment with `section=demoWorkflows`, `status`, and markdown `content`
-- The `demoWorkflows` fragment `content` MUST NOT include heading `### Demo Workflows`; only include workflow blocks and steps.
- - Render each workflow as `#### [Friendly Workflow Name]` followed by a numbered step list. Do not emit `##### Steps`.
+- The `demoWorkflows` fragment `content` MUST NOT include heading `### Demo Workflows`; only include grouped module blocks (`#### ...`) and workflow step blocks.
+- Module heading: `#### [Service/Module Name] ([module-path])` when more than one demo module is present; omit the wrapper when only one module is found
+- Workflow subheading: `##### [Friendly Workflow Name]` (extracted from RequestStart `config.request.name`)
+    - Before rendering, normalize the friendly name by removing leading numeric prefixes (regex: `^\d+(?:\.\d+)*\.\s*`).
 - Workflow steps: Numbered 1–N (typically 3–5 steps, adapt per workflow)
   - Each step focuses on **user action or observable outcome**, not internal process mechanics
    - No callable sub references in steps (for example, avoid `calls processName:callableSubName()`)
   - Each step describes what user sees (dialogs, forms, data) and what they can do (click, fill, view)
 - Do not use internal file names as launch instructions in prose
 - Final step: Mention Docker/deployment capability if available in module
+- Group all workflows for one module under its `#### Module Name` header
 - End with status comment
 - Deterministic order: process files alphabetical, then `RequestStart` by `config.signature`/`name`
 - If no workflows are found in a module after scan, include one explicit placeholder workflow block for that module
@@ -224,7 +236,7 @@ Example markdown content for demoWorkflows field (generated from RequestStart me
 
 - No scanning outside demo module
 - Deterministic order: process files alphabetical, RequestStart by name within each
-- Preserve the single consistent workflow heading structure in output (no `##### Steps`).
+- Preserve module grouping in output (`#### Module name`)
 - **Audience**: Write for non-technical stakeholders; use friendly language
 - **Format**: Multi-step numbered guidelines per workflow (not bullets, not single lines)
 - **Content**: Focus on user actions and observable outcomes; remove technical jargon
@@ -238,7 +250,7 @@ Example markdown content for demoWorkflows field (generated from RequestStart me
 - Output format: **Multi-step numbered guidelines** (3–5 steps per workflow, not bullets)
 - Audience: **Non-technical stakeholders** — remove callable sub names and internal process references
 - Content: Focus on **user actions and observable outcomes** (what user sees, what they can do)
-- Workflow names: Extract **friendly RequestStart display names** from `config.request.name`, not `.p.json` filenames
+- Workflow names: Extract **friendly RequestStart display names** from `config.request.name`, then normalize by removing leading numeric prefixes, not `.p.json` filenames
 - Docker integration: Mention Docker/deployment capability in **final workflow step** (if available in module)
 - Completeness gate: Ensure all RequestStart entries are represented; mark partial/missing if gaps exist
 - Ensure scanner uses recursive `processes/**/*.p.json` instead of top-level-only process files

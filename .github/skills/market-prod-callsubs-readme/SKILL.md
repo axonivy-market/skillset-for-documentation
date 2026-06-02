@@ -171,7 +171,8 @@ Behavior / Steps
 4. Sub-skill quality criteria (enforced):
    - **ivy-readme-key-features**: Extract product intro with image + external links, benefit-driven key features (6 items), roles from config/roles.xml, complete Setup section with steps, the fixed literal variables placeholder block `@variables.yaml@`, OpenAPI spec info (goes INTO Setup), and optional auth/runtime sections exactly as documented.
    - **ivy-readme-key-features**: Do not synthesize `### Azure App` heading unless that heading exists in source docs. Keep setup headings source-driven.
-   - **ivy-readme-demo-workflows**: Extract demo intro paragraph + external market links BEFORE workflow steps, render workflows as `#### workflow` followed by a numbered step list (do not emit a `##### Steps` subheading), use friendly non-technical step-by-step language.
+   - **ivy-readme-demo-workflows**: Extract demo intro paragraph + external market links BEFORE workflow steps, include module grouping with #### headers, use friendly non-technical step-by-step language, and never output empty module headings.
+   - **ivy-readme-demo-workflows**: Normalize workflow heading names by stripping leading numeric prefixes from `config.request.name` (for example `1. ...`, `1.1 ...`) before rendering `#####` workflow headings.
    - **ivy-readme-demo-workflows**: Prefer `https://market.axonivy.com/...` links over local relative links when both are available in sources.
    - **form-components-listing**: Extract component parameters from actual `.d.json` dataclass files (source-of-truth, no fabricated attributes)
    - **callable-sub-listing**: Include exact signatures with full parameter names and types (e.g., `writeMail(msgraph.connector.NewMail mail) -> ...`)

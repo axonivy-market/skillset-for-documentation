@@ -55,7 +55,7 @@ Assemble README from fragment inputs without recomputation.
        
        Algorithm:
          1. Parse placement → WorkflowName="Document Splitting", StepNumber=2
-         2. Scan Demo section for workflow heading: #### or ##### Document Splitting
+         2. Scan Demo section for workflow heading: ##### Document Splitting
          3. Within that workflow block, find step 2 line (e.g., "2. Upload or select a document...")
          4. Insert image after step 2:
             - Add blank line after step 2
@@ -65,7 +65,7 @@ Assemble README from fragment inputs without recomputation.
        
        Example input (GENERIC - any workflow):
        ```markdown
-      #### Document Splitting
+       ##### Document Splitting
        1. Launch the Document Splitting demo from the demo menu.
        2. Upload or select a document from the file browser.
        3. Configure splitting parameters (page range, orientation).
@@ -74,7 +74,7 @@ Assemble README from fragment inputs without recomputation.
        
        Example output (image inserted after step 2):
        ```markdown
-      #### Document Splitting
+       ##### Document Splitting
        1. Launch the Document Splitting demo from the demo menu.
        2. Upload or select a document from the file browser.
        
@@ -93,7 +93,7 @@ Assemble README from fragment inputs without recomputation.
        
        Algorithm:
          1. Parse placement → WorkflowName="Data Validation"
-         2. Scan Demo section for workflow heading: #### or ##### Data Validation
+         2. Scan Demo section for workflow heading: ##### Data Validation
          3. Find all numbered steps (1., 2., 3., ...)
          4. Insert image after last step:
             - Add blank line
@@ -101,7 +101,7 @@ Assemble README from fragment inputs without recomputation.
             - Add blank line
        
        Example (works for any workflow):
-      #### Data Validation
+       ##### Data Validation
        1. Launch the Data Validation workflow.
        2. Load your dataset or connect to data source.
        3. Configure validation rules and thresholds.
@@ -140,7 +140,7 @@ Assemble README from fragment inputs without recomputation.
        ```
        Step 1: Normalize both sides
          - image placement: WorkflowName = "Document Splitting" → "document splitting"
-         - readme heading: "#### Document Splitting" (or "##### Document Splitting") → "document splitting"
+         - readme heading: "##### Document Splitting" → "document splitting"
          - Rules: lowercase, remove punctuation, collapse whitespace
        
        Step 2: Compare normalized forms
@@ -245,7 +245,7 @@ Assemble README from fragment inputs without recomputation.
        README Content (before):
       ### Demo Workflows
        #### my-demo-module (any demo module)
-      #### Document Splitting
+       ##### Document Splitting
        1. Launch the Document Splitting demo
        2. Upload a document or select from library
        3. Configure splitting parameters
@@ -254,7 +254,7 @@ Assemble README from fragment inputs without recomputation.
        README Content (after):
       ### Demo Workflows
        #### my-demo-module
-      #### Document Splitting
+       ##### Document Splitting
        1. Launch the Document Splitting demo
        2. Upload a document or select from library
        
@@ -292,7 +292,7 @@ Assemble README from fragment inputs without recomputation.
       5. Before insertion, validate image path safety/resolvability from target README. If path is malformed, absolute, traversal-based (`..`), or unresolved, skip insertion of that image snippet.
 
 ### Example:
-If an image has `placement: demo:workflow-Document Splitting`, assembler must find the `####` or `##### Document Splitting` workflow block in the Demo section and insert the image after the numbered steps for that workflow.
+If an image has `placement: demo:workflow-Document Splitting`, assembler must find the `##### Document Splitting` workflow block in the Demo section and insert the image after the numbered steps for that workflow.
 
 If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler must insert the image directly below step `2.` in that workflow.
    - **Critical image rule**: Do not create a standalone `## Images` section under any circumstances unless the template or fragment explicitly sets `standalone=true`. When `productImageSection` is missing/empty, simply omit the entire Images section from output — do not insert a fallback placeholder like "No images detected".

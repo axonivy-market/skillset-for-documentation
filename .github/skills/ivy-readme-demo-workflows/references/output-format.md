@@ -25,17 +25,30 @@
 
 **Example output (fragment content only):**
 ```markdown
-#### Translate Text
+#### Calendar (msgraph-calendar-demo)
 
-1. Launch the text translation demo from the menu.
-2. Choose source and target languages.
-3. Enter text and run translation.
+- Read upcoming events: run the `readCalendar` demo (calls `msCalendar:upcomingEvents()`), then open the "Events" dialog to browse results.
+- Create a meeting: run the `meet` demo and use the "CreateEvent" dialog to fill details (calls `msCalendar:createMeeting(NewEvent)`).
 
-#### Translate File
+#### Mail (msgraph-mail-demo)
 
-1. Launch the file translation demo from the menu.
-2. Upload a file and select target language.
-3. Review and download translated output.
+- Send mail: open the `writeMail` demo, compose your message and send (calls `msMail:writeMail(NewMail)`).
+- Browse inbox: run the `inbox` demo to list messages in the "Mails" dialog.
+
+#### Files / SharePoint (msgraph-sharepoint-demo)
+
+- Upload a file: run the `upload` demo to create a sample file and upload it (calls `msFiles:uploadFile(File)`).
+- Recent files: run the `recentFiles` demo to list recently used items (calls `msFiles:myRecentFiles()`).
+
+#### To Do (msgraph-todo-demo)
+
+- List tasks: run the `myToDo` demo to view your tasks (calls `msToDo:allTasks()`).
+- Create a task: run the `createTask` demo and use the "CreateTask" dialog (calls `msToDo:createNewTask(NewToDo)`).
+
+#### Teams / Chat (msgraph-teams-demo)
+
+- Read recent messages: run the `readMessages` demo to fetch recent chat messages (calls `msChat:recentMessages()`).
+- Teams web demo: run `teamsWeb` to explore the web-integrated view.
 ```
 
 Note: The `demoWorkflows` fragment `content` must NOT include the heading `### Demo Workflows`. That heading is rendered by the assembler.
@@ -60,19 +73,41 @@ Note: The `demoWorkflows` fragment `content` must NOT include the heading `### D
   - Map to callable-sub calls via `SubProcessCall` elements
   - Generate workflow description: "run the `<processName>` demo (calls `<callableSubName>()` or `(ParamType)`)"
 
-### 3. Apply workflow structure
+### 2.1 Normalize Workflow Heading Names (Mandatory)
 
-- Render each workflow consistently as `#### Workflow` followed by a numbered list. Do not include an intermediate `##### Steps` subheading.
+- Source for heading text: `RequestStart.config.request.name` (fallback: `RequestStart.name`, then `config.signature`)
+- Strip leading numeric prefixes before rendering heading text:
+  - Primary regex: `^\d+\.\s*`
+  - Extended regex (multi-level numbering): `^\d+(?:\.\d+)*\.\s*`
+- Examples:
+  - `1. Generate Barcodes` -> `Generate Barcodes`
+  - `1.1 Document with TemplateMergeFields` -> `Document with TemplateMergeFields`
+  - `2. Create an .msg mail document` -> `Create an .msg mail document`
+- Never emit workflow headings with numeric prefixes in final markdown.
+
+### 2.2 Stable Markdown Structure (Mandatory)
+
+- Keep deterministic structure for demo workflows:
+  - Module header: `#### <ModuleName> (<module-path>)` (or omitted by single-module flattening rule)
+  - Workflow header: `##### <Normalized Workflow Name>`
+  - Steps: ordered list (`1.`, `2.`, `3.` ...)
+- Do not emit empty module/workflow headings.
+- Keep one blank line between workflow heading and first step.
+
+### 3. Group by Demo Module
+
+- Organize workflows under demo module headers: `#### <DemoModuleName> (<module-name>-demo)`
+- Preserve alphabetical or source order of demo modules
 
 ## Contract Requirements
 
 | Field | Value | Notes |
 |-------|-------|-------|
 | section | `demoWorkflows` | Fixed identifier |
-| content | Markdown with demo workflow steps | Can be from README.md or synthesized from process files; MUST contain only workflow blocks and steps, without the `### Demo Workflows` heading |
+| content | Markdown with demo workflow steps | Can be from README.md or synthesized from process files; MUST contain only module blocks (`#### ...`) and workflow blocks (`##### ...` + ordered steps), without the `### Demo Workflows` heading |
 | status | `success` if README.md demo section found; `partial` if synthesized from processes only; `missing` if no demo content found | - |
 | preserveMode | `verbatim` if from README.md; `structured` if synthesized | Preserve exact README.md wording when available |
-| requiredSubsections | Array of workflow names (e.g., ["Translate Text", "Translate File"]) | Used for coverage validation |
+| requiredSubsections | Array of demo module names (e.g., ["Calendar", "Mail", "Files / SharePoint", "To Do", "Teams / Chat"]) | Used for coverage validation |
 | evidence | Array of source files scanned (README.md, process JSON files) | Helps with debugging |
 
 ## Quality Criteria
@@ -81,8 +116,9 @@ Note: The `demoWorkflows` fragment `content` must NOT include the heading `### D
 - **Preserve exact wording** - use exact function names, parameter types, dialog names from README or process JSON
 - **Include callable-sub signatures** - each workflow should reference which callable sub is invoked (e.g., `msCalendar:upcomingEvents()`)
 - **Maintain structure** - preserve heading levels, list formatting, and grouping from source
-- **Heading boundary** - do not include `### Demo Workflows` in fragment content; include only workflow headings and step lists
- - **Workflow structure** - enforce `#### Workflow` + numbered list for each workflow (do not emit `##### Steps`).
+- **Normalize workflow names** - remove numeric prefixes from workflow headings before rendering
+- **Stable structure** - keep `#### module` -> `##### workflow` -> ordered list pattern with no empty headings
+- **Heading boundary** - do not include `### Demo Workflows` in fragment content; include only `#### ...` module headers and workflow bullets
 - **No fabrication** - only extract workflows that actually exist in docs or processes
 - **Complete workflows** - each workflow should be a complete step-by-step instruction or description
 
