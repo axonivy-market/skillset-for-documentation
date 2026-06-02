@@ -179,16 +179,13 @@ Generate product description, key-feature bullets, demo intro, and complete setu
    - If missing: set `status: missing`, content: "Roles configuration not documented"
 
 3. **Variables Section**:
-   - Extract complete variable block from `config/variables.yaml` 
-   - Preserve all inline comments and explanations
-   - Include any NOTE/[!NOTE] blocks if present
-   - Keep block formatting and indentation stable (verbatim where possible)
-   - If missing, set fragment status to `missing` with empty content.
-   - Do not synthesize fake/default YAML keys when the source file is missing.
-   - Replace `{{variableSection}}` with this exact fenced block (preserve the backticks literally in the output file):
+   - Do not expand `config/variables.yaml` into the README.
+   - Always return the exact literal fenced block below as `variablesSection.content`:
 ```
 @variables.yaml@
 ```
+   - Preserve the backticks and the `@variables.yaml@` token literally.
+   - If the file is missing or unreadable, still return the same literal fenced block and mark the fragment as `success` when the fixed placeholder is emitted.
 
    3.1 **OpenAPI Section**:
       - Extract OpenAPI endpoint/spec details from `config/rest-clients.yaml` and related docs.
@@ -225,7 +222,7 @@ Generate product description, key-feature bullets, demo intro, and complete setu
 - `rolesSection`: Roles configuration extracted from `config/roles.xml`
 - `openApiSection`: OpenAPI resources/config details (Spec URL + Namespace) — goes INTO Setup section
 - `setupSection`: All setup steps discovered from source docs/configuration (numbered steps, images preserved)
-- `variablesSection`: Complete variables YAML with comments and notes
+- `variablesSection`: Fixed literal fenced block containing `@variables.yaml@`
 - `mavenArtifactSection`: Maven artifacts with numbered XML dependency blocks. Do not include a `<version>` element in the generated blocks; prefer leaving version resolution to the packaging/build pipeline.
 
 Each section should include contract metadata when possible:

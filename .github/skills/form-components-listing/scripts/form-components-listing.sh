@@ -60,14 +60,13 @@ to_module_path() {
 command -v jq >/dev/null 2>&1 || { echo "Error: 'jq' is required." >&2; exit 3; }
 
 print_entry() {
-  local module_dir=$1 dir=$2 xhtml=$3
-  local name datafile namespace params pf ns ns2 simple purpose comp_type
+  local module_dir=$1 dir=$2 xhtml=$3 pfile=$4
+  local name namespace ns2 purpose comp_type proc_params
   name="$(basename "$dir")"
   namespace=""
   purpose=""
-  pf=$(find "$dir" -maxdepth 1 -type f -name '*.p.json' | head -n1 || true)
-  if [[ -n $pf ]]; then
-    ns2=$(jq -r '.config.data // .namespace // empty' "$pf" 2>/dev/null || true) || true
+  if [[ -n $pfile ]]; then
+    ns2=$(jq -r '.config.data // .namespace // empty' "$pfile" 2>/dev/null || true) || true
     [[ -n $ns2 ]] && namespace=$ns2
   fi
 
@@ -81,80 +80,42 @@ print_entry() {
     comp_type="UI dialog"
   fi
 
-  # Build a one-line purpose hint
-  purpose="Reusable form component"
+  # Build a one-line purpose hint from visible UI headline first, then fall back.
+  purpose=$(awk 'match($0, /<h[1-6][^>]*>([^<]+)<\/h[1-6]>/, m) { print m[1]; exit }' "$xhtml" 2>/dev/null || true)
+  [[ -z "$purpose" ]] && purpose="(not documented in source)"
 
   echo
-  echo "#### ${name} — ${purpose}"
+  echo "#### ${name}"
   echo
   echo "- **Namespace:** ${namespace:-(unknown)}"
   echo "- **Component type:** ${comp_type}"
   # Prefer Fields from process start signature (HtmlDialogStart) when available
-  if [[ -n $pf ]]; then
+  if [[ -n $pfile ]]; then
     # extract params from start signature
     proc_params=$(jq -r '
       .elements[]?
       | select(.type == "HtmlDialogStart" or .type == "HtmlDialogMethodStart" or .type == "HtmlDialogStart")
       | select(.config.signature == "start")
-      | .config.input.params[]? | "   - `" + .name + "` (" + .type + ")"' "$pf" 2>/dev/null || true)
+      | .config.input.params[]? | "   - `" + .name + "` (" + .type + ")" + (if ((.desc // "") != "") then " — " + .desc else "" end)' "$pfile" 2>/dev/null || true)
+    echo "- **Fields:**"
     if [[ -n $proc_params ]]; then
-      echo "- **Fields:** (sourced from start signature)"
       echo "$proc_params"
     else
-      # Do NOT fallback to .d.json; when start signature missing, do not declare Fields
-      echo "- **Fields:** (none declared - no start signature present)"
+      echo "   - (none declared)"
     fi
   else
-    # No process definition to extract start signature from; do not derive Fields
-    echo "- **Fields:** (none declared - no process start signature found)"
+    echo "- **Fields:**"
+    echo "   - (none declared)"
   fi
 
-  # UI attributes from xhtml component interface
-  if grep -qiE '<cc:interface([[:space:]>])' "$xhtml" 2>/dev/null; then
-    ui_attrs=$(awk '
-      BEGIN { RS="<cc:attribute"; ORS="" }
-      NR > 1 {
-        tag = $0
-        gt = index(tag, ">")
-        if (gt > 0) {
-          tag = substr(tag, 1, gt - 1)
-        }
-
-        name = ""
-        type = ""
-        def = ""
-        desc = ""
-        req = ""
-
-        if (match(tag, /name="([^"]+)"/, a)) name = a[1]
-        if (match(tag, /type="([^"]+)"/, b)) type = b[1]
-        if (match(tag, /default="([^"]+)"/, c)) def = c[1]
-        if (match(tag, /shortDescription="([^"]+)"/, d)) desc = d[1]
-        if (match(tag, /required="([^"]+)"/, e)) req = e[1]
-
-        if (name != "") {
-          printf "   - `%s`", name
-          if (type != "") printf " (%s)", type
-          if (req == "true") printf " (required)"
-          if (def != "") printf " (default: %s)", def
-          if (desc != "") printf " — %s", desc
-          printf "\n"
-        }
-      }
-    ' "$xhtml" 2>/dev/null || true)
-
-    if [[ -n $ui_attrs ]]; then
-      echo "- **UI attributes:**"
-      echo "$ui_attrs"
-    fi
-  fi
+  echo "- **Purpose:** ${purpose}"
 }
 
 # temporary buffers
 comp_tmp=$(mktemp)
 out_tmp=$(mktemp)
 
-# Collect only form components from all roots; exclude webContent
+# Collect dialog/component directories from all roots; exclude webContent.
 for ROOT in "${ROOTS[@]}"; do
   MODULE_DIR=$(realpath -m "$(dirname "$ROOT")")
 
@@ -166,79 +127,23 @@ for ROOT in "${ROOTS[@]}"; do
     esac
 
     dir=$(dirname "$xhtml")
-    is_component=false
-    if grep -qiE 'componentType\s*=\s*"IvyComponent"' "$xhtml" 2>/dev/null; then
-      is_component=true
-    else
-      for df in "$dir"/*.d.json; do
-        [[ -f $df ]] || continue
-        ns=$(jq -r '.namespace // empty' "$df" 2>/dev/null || true)
-        if [[ -n $ns ]] && echo "$ns" | grep -q '\.component\.'; then
-          is_component=true
-          break
-        fi
-      done
-      if [[ $is_component == false ]]; then
-        while IFS= read -r -d '' pf; do
-          pns=$(jq -r '.config.data // .namespace // empty' "$pf" 2>/dev/null || true)
-          if [[ -n $pns ]] && echo "$pns" | grep -q '\.component\.'; then
-            is_component=true
-            break
-          fi
-        done < <(find "$dir" -maxdepth 1 -type f -name '*.p.json' -print0)
-      fi
-    fi
-
-    if [[ $is_component == true ]]; then
-      echo "$MODULE_DIR|$dir|$xhtml" >> "$comp_tmp"
+    pf=$(find "$dir" -maxdepth 1 -type f \( -name '*Process.p.json' -o -name '*.p.json' \) | head -n1 || true)
+    if [[ -n "$pf" ]] || find "$dir" -maxdepth 1 -type f -name '*.f.json' | grep -q .; then
+      echo "$MODULE_DIR|$dir|$xhtml|$pf" >> "$comp_tmp"
     fi
   done < <(find "$ROOT" -type f -name '*.xhtml' -print0)
 done
 
 {
-  echo "# Axon Ivy Form Components Scan"
-  echo
-  echo "Scanned src_hd roots:"
-  for ROOT in "${ROOTS[@]}"; do
-    echo "- $ROOT"
-  done
-  echo
-  echo "#### form components"
-
-  sort -u "$comp_tmp" | while IFS='|' read -r module_dir dir xhtml; do
-    print_entry "$module_dir" "$dir" "$xhtml"
+  found_any=false
+  sort -u "$comp_tmp" | while IFS='|' read -r module_dir dir xhtml pf; do
+    found_any=true
+    print_entry "$module_dir" "$dir" "$xhtml" "$pf"
   done
 
-  # Print p.json component files anywhere (exclude webContent)
-  for ROOT in "${ROOTS[@]}"; do
-    MODULE_DIR=$(realpath -m "$(dirname "$ROOT")")
-    while IFS= read -r -d '' pf; do
-      case "$pf" in
-        *[/]webContent/*|*[/]webcontent/*)
-          continue
-          ;;
-      esac
-      type_field=$(jq -r '.type // empty' "$pf" 2>/dev/null || true)
-      in_component_dir=false
-      case "$pf" in
-        */component/*|*/components/*) in_component_dir=true ;;
-      esac
-
-      if [[ $in_component_dir == true ]] || echo "$type_field" | grep -qi component; then
-        echo
-        echo "- Component file: $(to_module_path "$MODULE_DIR" "$pf")"
-        [[ -n $type_field ]] && echo "  - type: $type_field"
-        name=$(jq -r '.name // .id // empty' "$pf" 2>/dev/null || true)
-        [[ -n $name ]] && echo "  - name: $name"
-        desc=$(jq -r '.description // empty' "$pf" 2>/dev/null || true)
-        [[ -n $desc ]] && echo "  - description: $desc"
-      fi
-    done < <(find "$ROOT" -type f -name '*.p.json' -print0)
-  done
-
-  echo
-  echo "---"
-  echo "Scan complete."
+  if [[ ! -s "$comp_tmp" ]]; then
+    echo "- No form components delivered by this extension."
+  fi
 } > "$out_tmp"
 
 rm -f "$comp_tmp"

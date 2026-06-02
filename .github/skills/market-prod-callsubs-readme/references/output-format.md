@@ -122,7 +122,7 @@ If no variables are found after a genuine extraction attempt, keep `### Variable
 
 **Template Rules:**
 - Preserve exact product description and key features from source
-- Include the exact fenced block containing @variables.yaml@ if found in variables section
+- Include the exact literal fenced block containing @variables.yaml@ in variables section
 - Never include footer metadata or generation timestamps
 - All sections are required; use fallback content if missing
 - Prefer repository-native style profile when detected (list numbering, OpenAPI section style, callable-sub formatting)

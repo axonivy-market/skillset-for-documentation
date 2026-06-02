@@ -360,7 +360,8 @@ build_dialog_components_section() {
       comp_type="UI dialog"
     fi
 
-    content+="#### ${simple_name} — Reusable form component"$'\n\n'
+    local purpose_line="(not documented in source)"
+    content+="#### ${simple_name}"$'\n\n'
     content+="- **Namespace:** ${namespace:-(unknown)}"$'\n'
     content+="- **Component type:** ${comp_type}"$'\n'
 
@@ -376,56 +377,13 @@ build_dialog_components_section() {
       | join("\n")
     ' "$pfile" 2>/dev/null || true)
 
-    # Emit Fields in fixed one-line fallback when missing
+    # Emit Fields in fixed section shape.
     if [[ -n "$fields_md" ]]; then
       content+="- **Fields:**"$'\n'
       content+="${fields_md}"$'\n'
     else
-      content+="- **Fields:** - (none)"$'\n'
-    fi
-
-    # UI attributes: extract cc:attribute entries from .xhtml (if component declares them)
-    ui_attrs_md=""
-    if [[ -n "$xhtml" ]] && grep -qiE '<cc:interface([[:space:]>])' "$xhtml" 2>/dev/null; then
-      ui_attrs_md=$(awk '
-        BEGIN { RS="<cc:attribute"; ORS="" }
-        NR > 1 {
-          tag = $0
-          gt = index(tag, ">")
-          if (gt > 0) {
-            tag = substr(tag, 1, gt - 1)
-          }
-
-          name = ""
-          type = ""
-          def = ""
-          desc = ""
-          req = ""
-
-          if (match(tag, /name="([^\"]+)"/, a)) name = a[1]
-          if (match(tag, /type="([^\"]+)"/, b)) type = b[1]
-          if (match(tag, /default="([^\"]+)"/, c)) def = c[1]
-          if (match(tag, /shortDescription="([^\"]+)"/, d)) desc = d[1]
-          if (match(tag, /required="([^\"]+)"/, e)) req = e[1]
-
-          if (name != "") {
-            printf "    - `%s`", name
-            if (type != "") printf " (%s)", type
-            if (req == "true") printf " (required)"
-            if (def != "") printf " (default: %s)", def
-            if (desc != "") printf " — %s", desc
-            printf "\n"
-          }
-        }
-      ' "$xhtml" 2>/dev/null || true)
-    fi
-
-    # Always emit UI attributes header; if none found, show (none)
-    content+="- **UI attributes:**"$'\n'
-    if [[ -n "$ui_attrs_md" ]]; then
-      content+="$ui_attrs_md"$'\n'
-    else
-      content+="    - (none)"$'\n'
+      content+="- **Fields:**"$'\n'
+      content+="    - (none declared)"$'\n'
     fi
 
     # Enrich with CMS description when available
@@ -435,9 +393,11 @@ build_dialog_components_section() {
         desc=$(awk -F"\t" -v ns="$namespace" -v s="$simple_name" '{ if (index($1, ns) && index($1, s)) {print $2; exit} }' "$CMS_EN_MAP" 2>/dev/null || true)
       fi
       if [[ -n "$desc" ]]; then
-        content+="- **Purpose:** ${desc}"$'\n'
+        purpose_line="$desc"
       fi
     fi
+
+    content+="- **Purpose:** ${purpose_line}"$'\n'
 
     content+=$'\n'
   done < <(find "${src_hd}" -type f -name '*Process.p.json' -print0 | sort -z)
@@ -650,7 +610,6 @@ translate_to_de() {
     -e 's/- No form components delivered by this extension\./- Diese Erweiterung liefert keine Formularkomponenten./g' \
     -e 's/- No information was delivered for this section\./- Es wurden keine Informationen für diesen Abschnitt geliefert./g' \
     -e 's/\*(optional)\*/*(optional)*/g' \
-    -e 's/Reusable form component/Wiederverwendbare Formularkomponente/g' \
     -e 's/(inferred purpose)/(abgeleiteter Zweck)/g' \
     -e 's/\*\*Component type:\*\*/**Komponententyp:**/g' \
     -e 's/\*\*Fields:\*\*/**Felder:**/g' \

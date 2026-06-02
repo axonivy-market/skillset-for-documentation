@@ -9,7 +9,7 @@ user-invocable: true
 # Form Components Summary
 
 Generate a concise, marketing-oriented summary of available form components from main module(s) in an Axon Ivy project.
-Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and clear.
+Enforce one fixed markdown shape per component so downstream README assembly cannot drift.
 
 ## Inputs
 - Optional path to the `src_hd` directory of the main module (e.g. `my-connector/src_hd`). Defaults to scanning the current workspace.
@@ -26,12 +26,10 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
     - `Component dialog`: detect `<cc:interface ...>` in `.xhtml`
     - `UI dialog`: detect `<ui:composition ...>` in `.xhtml`
     - `Form dialog`: detect sibling file name matching `*.f.json`
-   - **Paths to component files** (xhtml location)
    - **Component parameters (Fields):** prefer the dialog's `start` signature from the process definition.
      - For HTML dialogs, read `<mainModule>/src_hd/**/*Process.p.json` and find the `HtmlDialogStart` or equivalent element where `config.signature == "start"`.
      - Use `config.input.params[]` (`name`, `type`, `desc`) from that `start` signature as the canonical `Fields` list.
      - **Do not** use `.d.json` to populate the `Fields` list when a `start` signature is present; use `.d.json` only as a fallback or for other runtime fields.
-   - **UI attributes** declared in `.xhtml` component interface (if present)
    - Component purpose/description (from CMS or inline documentation)
 
 3. **Data source priority (ENHANCED)**:
@@ -39,8 +37,7 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
    - **Enrichment source 1:** `.cms` files for user-facing descriptions and component purpose
    - **Enrichment source 2:** `.xhtml` component definition files for:
      - Component type classification restricted to `Component dialog`, `UI dialog`, `Form dialog`
-     - JSF `cc:interface` attributes and metadata if present
-     - Component start method signature
+     - User-facing purpose hints from visible headings/labels when no CMS description exists
    - **Enrichment source 3:** `.d.json` dataclass files for runtime fields and comments (only used for enrichment, not to override `Fields` when `start` signature exists)
    - **Enrichment source 4:** Related process files (`processes/**/*.p.json`) for:
      - Which callable subs use this component (SubProcessCall references)
@@ -55,23 +52,33 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
    - Never fabricate component attributes—only synthesize purpose/context
   - If no components are found in scoped paths, synthesize a block: "No form components delivered by this extension."
 
-4. **Output Format (ENHANCED with enriched content)**:
-   - **Component heading:** `#### [Component Name] — [One-line purpose/benefit]` (NOT just `- **[Component Name]**`)
+4. **Output Format (STRICT)**:
+   - **Component heading:** `#### [Component Name]` or `#### [Component Name] — [One-line purpose/benefit]`
    - Each component must be preceded by a markdown level-4 heading (`####`), not a bullet point
    - **Namespace line:** `- **Namespace:** [full.namespace]`
-  - **Type line:** `- **Component type:** [Component dialog | UI dialog | Form dialog]`
+   - **Type line:** `- **Component type:** [Component dialog | UI dialog | Form dialog]`
    - **Fields section with descriptions** (NOT just field types without descriptions):
      ```markdown
      - **Fields:**
         - `fieldName1` (FieldType1) — [Description: what this field is used for, e.g., "Email recipients list"]
         - `fieldName2` (FieldType2) — [Description: e.g., "Message subject line"]
      ```
-   - **Purpose section (if available):**
+   - **Purpose section (mandatory):**
      ```markdown
      - **Purpose:** [One user-facing sentence explaining what this component does and why users need it]
      ```
+   - **Forbidden keys in final markdown:** `Parameter`, `Main feature/logic`, `UI attributes`, `Paths`
+   - If no start signature fields are present, still render the same section shape:
+     ```markdown
+     - **Fields:**
+        - (none declared)
+     ```
+   - If no description can be extracted, still render:
+     ```markdown
+     - **Purpose:** (not documented in source)
+     ```
    - Keep exact `.d.json` field names and types (never abbreviate or simplify)
-   - Always include Namespace + Type lines (helps users understand scope and integration point)
+   - Always include Namespace + Type + Fields + Purpose lines
    - Ensure heading (####), grouping, and format are consistent across all components
    - Do NOT output simple bullet list format like `- **ComponentName**` with just field types
 
@@ -89,10 +96,13 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
    - If only `.d.json` extracted (no enrichment): `status: partial` with note that descriptions were not available in source
    - Do NOT include HTML comments in the content field (status metadata goes in JSON fields only)
 
-6. **Dual-view blocks when both sources exist**:
-   - Runtime parameters (from `.d.json`)
-   - UI attributes (from `.xhtml`)
-   - Component metadata from all enrichment sources
+6. **Shape enforcement**:
+  - Every component block must use exactly this ordered body structure:
+    1. `- **Namespace:**`
+    2. `- **Component type:**`
+    3. `- **Fields:**`
+    4. `- **Purpose:**`
+  - No additional top-level bullets may appear inside a component block.
 
 ## Usage
 
@@ -135,7 +145,7 @@ JSON shape example:
 ## Quality Criteria
 
 - **Accuracy**: `Fields` must match the dialog `start` signature parameters when present; do NOT use `.d.json` to populate `Fields`.
-- **Dual-source integrity**: Keep runtime parameters and UI attributes separated; never merge or relabel them
+- **Structure integrity**: The final markdown block for each component must contain only `Namespace`, `Component type`, `Fields`, and `Purpose` in that order.
 - **Completeness**: Include all components found in src_hd
 - **No fabrication**: Do not generate component attributes that don't exist in source
 - **Scope safety**: Default scan must not include demo/test modules unless explicitly requested.
@@ -147,5 +157,6 @@ JSON shape example:
 
 - Ensure output conforms to JSON format as specified in the output format reference.
 - Add support for `.cms` files to extract user-facing descriptions.
-- Separate runtime parameters and UI attributes in the output.
+- Enforce the fixed README structure: `Namespace`, `Component type`, `Fields`, `Purpose`.
+- Do not emit legacy labels such as `Parameter`, `Main feature/logic`, or `UI attributes`.
 - Use JSON status/completeness fields for metadata (not HTML comments)

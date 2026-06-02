@@ -106,24 +106,15 @@ Check the demo implementations we have prepared for the various services from Mi
 ### variablesSection
 
 **Example output:**
+```markdown
 ```yaml
-Variables:
-  
-  microsoftConnector:
-    
-    # Your Azure Application (client) ID
-    appId: ""
-    
-    # Secret key from your applications "certificates & secrets"
-    # [password]
-    secretKey: ""
-    
-    # ... rest of variables with comments ...
+@variables.yaml@
+```
 ```
 
-**Status:** `success` if file found, `missing` otherwise.
+**Status:** `success` when the fixed placeholder block is emitted.
 
-**Preserve mode:** `verbatim` - preserve exact YAML structure, indentation, and comments
+**Preserve mode:** `verbatim` - preserve the fenced block exactly as a literal placeholder
 
 ### openApiSection
 
@@ -149,7 +140,7 @@ https://graphexplorerapi.azurewebsites.net/openapi?tags=me.user,me.calendar,user
 3. **Extract keyFeatures** - content from ### Key features section
 4. **Extract demoIntroSection** - paragraph text under ## Demo before demo workflows
 5. **Extract setupSection** - complete ## Setup section with all subsections
-6. **Extract variablesSection** - read `config/variables.yaml` verbatim
+6. **Extract variablesSection** - emit the literal fenced block `@variables.yaml@` exactly
 7. **Extract openApiSection** - read OpenAPI URL from `config/rest-clients.yaml`
 8. **Return all as JSON fragments** conforming to the contract above
 
