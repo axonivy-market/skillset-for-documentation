@@ -239,6 +239,20 @@ bash ./.github/skills/generate-ivy-readme-components-section/scripts/generate-co
   docusign-connector-product/README_DE.md
 ```
 
+### Windows (keep using .sh)
+
+If `bash` in PowerShell routes to WSL and fails because no distro is installed,
+run the same `.sh` script via Git Bash executable directly:
+
+```powershell
+"C:\Program Files\Git\bin\bash.exe" ./.github/skills/market-prod-callsubs-components-section/scripts/generate-components-section.sh \
+  idp-connector idp-connector-product
+```
+
+Notes:
+- This keeps one single script (`.sh`) for all environments.
+- No `.ps1` wrapper is required.
+
 ## Quality criteria
 
 - Scope strictly limited to the `## Components` section.

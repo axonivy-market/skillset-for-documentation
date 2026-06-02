@@ -63,20 +63,12 @@ print_entry() {
   local module_dir=$1 dir=$2 xhtml=$3
   local name datafile namespace params pf ns ns2 simple purpose comp_type
   name="$(basename "$dir")"
-  datafile=$(ls -1 "$dir"/*.d.json 2>/dev/null | head -n1 || true)
   namespace=""
-  params=""
   purpose=""
-  if [[ -n $datafile ]]; then
-    ns=$(jq -r '.namespace // empty' "$datafile" 2>/dev/null || true)
-    [[ -n $ns ]] && namespace=$ns
-    simple=$(jq -r '.simpleName // empty' "$datafile" 2>/dev/null || true)
-    [[ -n $simple ]] && name=$simple
-    params=$(jq -r '.fields[]? | "   - `" + .name + "` (" + .type + ")"' "$datafile" 2>/dev/null || true)
-  fi
   pf=$(find "$dir" -maxdepth 1 -type f -name '*.p.json' | head -n1 || true)
   if [[ -n $pf ]]; then
-    [[ -z $namespace ]] && ns2=$(jq -r '.config.data // .namespace // empty' "$pf" 2>/dev/null || true) && [[ -n $ns2 ]] && namespace=$ns2
+    ns2=$(jq -r '.config.data // .namespace // empty' "$pf" 2>/dev/null || true) || true
+    [[ -n $ns2 ]] && namespace=$ns2
   fi
 
   # Component type is restricted to 3 values only: Component dialog, UI dialog, Form dialog.
@@ -84,7 +76,7 @@ print_entry() {
   if find "$dir" -maxdepth 1 -type f -name '*.f.json' | grep -q .; then
     comp_type="Form dialog"
   elif grep -qiE '<cc:interface([[:space:]>])' "$xhtml" 2>/dev/null; then
-    comp_type="Component"
+    comp_type="Component dialog"
   else
     comp_type="UI dialog"
   fi
@@ -97,11 +89,64 @@ print_entry() {
   echo
   echo "- **Namespace:** ${namespace:-(unknown)}"
   echo "- **Component type:** ${comp_type}"
-  if [[ -n $params ]]; then
-    echo "- **Fields:**"
-    echo "$params"
+  # Prefer Fields from process start signature (HtmlDialogStart) when available
+  if [[ -n $pf ]]; then
+    # extract params from start signature
+    proc_params=$(jq -r '
+      .elements[]?
+      | select(.type == "HtmlDialogStart" or .type == "HtmlDialogMethodStart" or .type == "HtmlDialogStart")
+      | select(.config.signature == "start")
+      | .config.input.params[]? | "   - `" + .name + "` (" + .type + ")"' "$pf" 2>/dev/null || true)
+    if [[ -n $proc_params ]]; then
+      echo "- **Fields:** (sourced from start signature)"
+      echo "$proc_params"
+    else
+      # Do NOT fallback to .d.json; when start signature missing, do not declare Fields
+      echo "- **Fields:** (none declared - no start signature present)"
+    fi
   else
-    echo "- **Fields:** (none declared)"
+    # No process definition to extract start signature from; do not derive Fields
+    echo "- **Fields:** (none declared - no process start signature found)"
+  fi
+
+  # UI attributes from xhtml component interface
+  if grep -qiE '<cc:interface([[:space:]>])' "$xhtml" 2>/dev/null; then
+    ui_attrs=$(awk '
+      BEGIN { RS="<cc:attribute"; ORS="" }
+      NR > 1 {
+        tag = $0
+        gt = index(tag, ">")
+        if (gt > 0) {
+          tag = substr(tag, 1, gt - 1)
+        }
+
+        name = ""
+        type = ""
+        def = ""
+        desc = ""
+        req = ""
+
+        if (match(tag, /name="([^"]+)"/, a)) name = a[1]
+        if (match(tag, /type="([^"]+)"/, b)) type = b[1]
+        if (match(tag, /default="([^"]+)"/, c)) def = c[1]
+        if (match(tag, /shortDescription="([^"]+)"/, d)) desc = d[1]
+        if (match(tag, /required="([^"]+)"/, e)) req = e[1]
+
+        if (name != "") {
+          printf "   - `%s`", name
+          if (type != "") printf " (%s)", type
+          if (req == "true") printf " (required)"
+          if (def != "") printf " (default: %s)", def
+          if (desc != "") printf " — %s", desc
+          printf "\n"
+        }
+      }
+    ' "$xhtml" 2>/dev/null || true)
+
+    if [[ -n $ui_attrs ]]; then
+      echo "- **UI attributes:**"
+      echo "$ui_attrs"
+    fi
   fi
 }
 

@@ -27,23 +27,28 @@ Ensure output grouping, heading, and dual-view (runtime/UI) are consistent and c
     - `UI dialog`: detect `<ui:composition ...>` in `.xhtml`
     - `Form dialog`: detect sibling file name matching `*.f.json`
    - **Paths to component files** (xhtml location)
-   - **Actual component parameters** from the corresponding `.d.json` dataclass file (NOT fabricated)
+   - **Component parameters (Fields):** prefer the dialog's `start` signature from the process definition.
+     - For HTML dialogs, read `<mainModule>/src_hd/**/*Process.p.json` and find the `HtmlDialogStart` or equivalent element where `config.signature == "start"`.
+     - Use `config.input.params[]` (`name`, `type`, `desc`) from that `start` signature as the canonical `Fields` list.
+     - **Do not** use `.d.json` to populate the `Fields` list when a `start` signature is present; use `.d.json` only as a fallback or for other runtime fields.
    - **UI attributes** declared in `.xhtml` component interface (if present)
    - Component purpose/description (from CMS or inline documentation)
 
 3. **Data source priority (ENHANCED)**:
-   - **Primary source:** `.d.json` dataclass files for actual field names and types
+   - **Primary source:** Process `start` signature (`HtmlDialogStart.config.input.params[]`) for the `Fields` list
    - **Enrichment source 1:** `.cms` files for user-facing descriptions and component purpose
    - **Enrichment source 2:** `.xhtml` component definition files for:
      - Component type classification restricted to `Component dialog`, `UI dialog`, `Form dialog`
      - JSF `cc:interface` attributes and metadata if present
      - Component start method signature
-   - **Enrichment source 3:** Related process files (`processes/**/*.p.json`) for:
+   - **Enrichment source 3:** `.d.json` dataclass files for runtime fields and comments (only used for enrichment, not to override `Fields` when `start` signature exists)
+   - **Enrichment source 4:** Related process files (`processes/**/*.p.json`) for:
      - Which callable subs use this component (SubProcessCall references)
      - Which demo dialogs instantiate this component (DialogCall references)
-   - **Enrichment source 4:** README/setup documentation for component usage context
-   - **Synthesis rule (when sources incomplete):**
-     - Use field names and types to infer component purpose
+   - **Enrichment source 5:** README/setup documentation for component usage context
+  - **Synthesis rule (when sources incomplete):**
+   - If `start` signature is absent, do NOT derive `Fields` from `.d.json`; instead mark `Fields` as not declared and set `status: partial`.
+   - Use field names and types from the `start` signature to infer component purpose when available.
      - Example: "NewMail captures email metadata (recipients, subject, body) for mail operations"
      - Link to related callable sub or demo dialog
      - Mark status as `partial` when synthesized
@@ -129,7 +134,7 @@ JSON shape example:
 
 ## Quality Criteria
 
-- **Accuracy**: Parameters must match actual `.d.json` dataclass definitions
+- **Accuracy**: `Fields` must match the dialog `start` signature parameters when present; do NOT use `.d.json` to populate `Fields`.
 - **Dual-source integrity**: Keep runtime parameters and UI attributes separated; never merge or relabel them
 - **Completeness**: Include all components found in src_hd
 - **No fabrication**: Do not generate component attributes that don't exist in source
