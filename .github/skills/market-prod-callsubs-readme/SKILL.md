@@ -65,8 +65,8 @@ Execution guardrails (mandatory)
 8. **Normalization enforcement**: `ivy-readme-key-features` MUST normalize broken list numbering in setup sections (e.g., repeated `1.` items must be renumbered to `1.`, `2.`, `3.`, `4.`, etc. at top level with proper sub-numbering `1.1.`, `1.2.` for nested items). If source has broken numbering, return `preserveMode=structured` in fragment.
 9. **Image handling**: Do NOT create standalone `## Images` section in final README. All images must be embedded within their related sections (Setup, Demo, etc.). If `productImageSection` fragment is `missing`, omit images entirely from output — do not insert fallback text.
 9.1 **Image path validation (mandatory)**: Before embedding image snippets, validate that each path is safe and resolvable from the target README location. If a path is broken/malformed, skip that image snippet and continue generation.
-10. **Write mode enforcement (mandatory)**: `README.md` and `README_DE.md` must be written with full-file overwrite semantics (truncate then write). Never append to existing files and never use patch-style partial updates for final generation output.
-11. **Duplicate guard (mandatory)**: After writing each target file, validate that there is only one top-level title block (single leading `# ...` document start). If repeated full document starts are detected, regenerate and overwrite the target file once using the same source fragments/translation output.
+10. **Write mode enforcement (mandatory)**: `README.md` and `README_DE.md` must be written with full-file overwrite semantics (truncate then write). Never append to existing files and never use patch-style partial updates for final generation output. The target file is write-only during generation and must not be treated as an input source.
+11. **Duplicate guard (mandatory)**: Before assembling or translating, ignore any existing content in the target README paths. Do not ingest `<productModule>/README.md` or `<productModule>/README_DE.md` as source material in the same run. After writing each target file, validate that there is only one top-level title block (single leading `# ...` document start). If repeated full document starts are detected, regenerate and overwrite the target file once using the same source fragments/translation output.
 
 
 Output
@@ -151,6 +151,7 @@ Behavior / Steps
 
 3. Rebuild output rules:
    - Assemble using schema order from `output-format.md`.
+   - Treat `README.md` target content as non-authoritative in every run. Never merge with existing target-file content; always compose a fresh document from the fragment map and overwrite the target file in full.
    - Do not prepend, parse, or copy any product description block from README.md.
    - Inject sub-skill outputs verbatim using the contract defined in `output-format.md`.
    - If a Demo Workflows section is present in docs or can be inferred from demo process files, inject it as a subheading under Demo.
