@@ -12,12 +12,13 @@ Generate a concise, marketing-oriented summary of available form components from
 Enforce one fixed markdown shape per component so downstream README assembly cannot drift.
 
 ## Inputs
-- Optional path to the `src_hd` directory of the main module (e.g. `my-connector/src_hd`). Defaults to scanning the current workspace.
-- Optional `includeDemoModules` flag (default: `false`). When `false`, scan only the provided main module path.
+- Optional path to the `src_hd` directory of the main module (e.g. `my-connector/src_hd`).
+- If path is omitted, resolve to `<mainModule>/src_hd` from caller context; do not scan workspace root.
+- Optional `includeDemoModules` flag (default: `false`). When `false`, scan only the resolved/provided main module path.
 
 Performance note:
 - For large monorepos, always pass `<mainModule>/src_hd` (or `<mainModule>`) explicitly.
-- Workspace-root scans are significantly slower and should be used only for diagnostics.
+- Workspace-root scans are not allowed in normal extraction flow.
 
 ## Extraction Rules
 
@@ -119,14 +120,15 @@ Before running, check the current OS. If on Windows, git bash or WSL is recommen
 bash ./.github/skills/form-components-listing/scripts/form-components-listing.sh '<src_hd path>'
 ```
 
-You may also pass a parent folder that contains multiple modules with `src_hd`.
-
 ### Write to file
 ```bash
 bash ./.github/skills/form-components-listing/scripts/form-components-listing.sh '<src_hd path>' 'docs/form-components.md'
 ```
 
-The scanner is module-agnostic; pass a module folder, a `src_hd` folder, or a parent folder that contains modules with `src_hd`.
+The scanner accepts a module folder or a `src_hd` folder.
+
+For README generation flows, callers must pass only `<mainModule>` or `<mainModule>/src_hd`.
+Do not pass workspace root or multi-module parent folders unless `includeDemoModules=true` is explicitly required.
 
 ## Output
 - The skill returns a JSON fragment conforming to [output-format.md](../references/output-format.md), with markdown stored in `content`

@@ -49,7 +49,7 @@ Runtime optimization rules (mandatory)
 --------------------------------------
 - Use module-scoped extraction paths whenever possible:
    - `callable-sub-listing`: scan `<mainModule>/processes/**` first (avoid `./**/*.p.json` global scans)
-   - `form-components-listing`: scan `<mainModule>/src_hd` first (avoid workspace-wide scan by default)
+   - `form-components-listing`: scan `<mainModule>/src_hd` only. Do not fallback to demo or other modules.
    - `product-image-summary`: prefer canonical image folders (`images`, `doc/img`, `docs/images`) before any full-root fallback
 - Run independent extractors in parallel after module discovery.
 - Avoid repeated scans of the same folder tree in one run; reuse already collected file lists in-memory inside the same orchestration step.
@@ -106,6 +106,7 @@ Behavior / Steps
    - If `demoModules` is empty but non-excluded modules contain `processes/**/*.p.json` with `RequestStart`, infer those modules as `demoModules` in-memory for this run.
    - If `mainModule` has no useful extraction evidence (no setup docs, no variables, no callable subs, no `src_hd`), retry extractors with a module set fallback:
      - `moduleSetForExtraction = all non-excluded, non-product modules`
+    - Exception: `form-components-listing` must remain main-module scoped. If `<mainModule>/src_hd` is missing or yields no components, keep `formComponentSection` as `missing` and render the fixed fallback sentence under `### Dialog Components`.
    - This fallback is generic and must not rely on naming conventions like `-demo`.
 
 1.1 Resolve generic Axon Ivy/Maven profile:
@@ -132,8 +133,8 @@ Behavior / Steps
     - Applies at minimum to:
        - `ivy-readme-demo-workflows` (scan all inferred `demoModules`)
        - `callable-sub-listing` (scan all candidate modules' `processes/**/*.p.json`)
-       - `form-components-listing` (scan all candidate modules' `src_hd` trees)
        - `ivy-readme-key-features` setup/variables roles fallback when main module is sparse
+   - `form-components-listing` is excluded from this fallback and must not scan candidate modules beyond `<mainModule>/src_hd`.
     - Normalize to `missing` only after this fallback scan also produces no content.
 
 2.1 Mandatory fragment mapping (must be present before assembly):
@@ -145,6 +146,7 @@ Behavior / Steps
    - `setupSection` <- from `ivy-readme-key-features` (setup steps only, no roles/openapi inline)
    - `variablesSection` <- from `ivy-readme-key-features`
    - `openApiSection` <- from `ivy-readme-key-features` (will be placed in Setup by assembler, not separate section)
+   - `webServicesSection` (virtual) <- canonical alias of `openApiSection` for rendering under `### Web Services`
    - `callableSubSection` <- from `callable-sub-listing`
    - `formComponentSection` <- from `form-components-listing`
    - `mavenArtifactSection` <- from `maven-artifact-listing`
@@ -152,6 +154,8 @@ Behavior / Steps
 2.2 Pre-assembly validation gate (required):
    - Validate all mandatory fragment mappings exist and are structurally valid (`section`, `content`, `status`).
    - If validation fails, normalize invalid/missing entries into `missing` fragments and continue.
+   - **Acceptance check (mandatory)**: if `<mainModule>/config/rest-clients.yaml` contains an OpenAPI spec URL (`OpenAPI.SpecUrl`), `openApiSection` MUST NOT be normalized to `missing`.
+   - **Acceptance check (mandatory)**: when `openApiSection` has content from OpenAPI evidence, `### Web Services` MUST render that content (via `webServicesSection` alias) and MUST NOT render the generic missing fallback sentence.
    - Always create or update `README.md` when assembly is available.
 
 2.3 Dependency fallback (required):
@@ -168,23 +172,32 @@ Behavior / Steps
    - Include a Demo intro/body paragraph before Demo Workflows when available (`demoIntroSection`).
    - Keep variables under Setup as a `### Variables` subsection by default; do not create a standalone `## Variables` section unless style profile explicitly requires it.
    - If `variablesSection` is genuinely missing after extraction, do not render any fallback sentence under `### Variables`.
-   - Do not drop sections when a fragment is empty. Insert `missingSectionFallback` under that heading.
+   - Do not drop sections when a fragment is empty, except inside `## Components` where empty subsections must be omitted.
    - Apply assembler fallback rules: keep heading + inject placeholder if status is `missing` or content is empty.
    - Enforce coverage gate: when fragment declares `requiredSubsections`, missing subsections must be reported and rendered with explicit placeholders.
    - Preserve the exact fenced block containing @variables.yaml@ (including surrounding line breaks and backticks).
-   - Always render `## Components` as parent heading and place `### Callable Subprocesses`, `### Dialog Components`, `### Web Services`, and `### Maven Artifacts` beneath it.
+   - Always render `## Components` as parent heading.
+    - Within `## Components`, always render `### Callable Subprocesses`, `### Dialog Components`, `### Web Services`, and `### Maven Artifacts` in this order.
+      - Canonical render rule: `### Web Services` is sourced from `openApiSection` (via `webServicesSection` alias), while OpenAPI may also remain visible in Setup when style requires it.
+      - If OpenAPI evidence exists (`rest-clients.yaml` with `OpenAPI.SpecUrl`), never mark `### Web Services` as missing.
+    - If any of these subsections is missing, render one bullet fallback directly under that subsection heading (do not append a combined sentence at the end):
+       - `- For this market extension we do not provide any Callable Subprocesses.`
+       - `- For this market extension we do not provide any Dialog Components.`
+       - `- For this market extension we do not provide any Web Services.`
+       - `- For this market extension we do not provide any Maven Artifacts.`
+      - Web Services fallback is allowed only when no OpenAPI evidence is found after a genuine extraction attempt.
    - Never render `## Callable Subprocesses` as a top-level section.
    - **CRITICAL**: Remove any footer metadata, generation timestamps, skill attribution comments, or output contract references from final output.
    - Only footer-free content appears in README.md.
    - Do not add helper sections such as `## Notes`, `## Generation Info`, or other non-template metadata headings.
 
 4. Sub-skill quality criteria (enforced):
-   - **ivy-readme-key-features**: Extract product intro with image + external links, benefit-driven key features (6 items), roles from config/roles.xml, complete Setup section with steps, the fixed literal variables placeholder block `@variables.yaml@`, OpenAPI spec info (goes INTO Setup), and optional auth/runtime sections exactly as documented.
+   - **ivy-readme-key-features**: Extract product intro with image + external links, benefit-driven key features (6 items), roles from config/roles.xml, complete Setup section with steps, the fixed literal variables placeholder block `@variables.yaml@`, OpenAPI spec info (used in Setup and as source for `### Web Services`), and optional auth/runtime sections exactly as documented.
    - **ivy-readme-key-features**: Do not synthesize `### Azure App` heading unless that heading exists in source docs. Keep setup headings source-driven.
    - **ivy-readme-demo-workflows**: Extract demo intro paragraph + external market links BEFORE workflow steps, include module grouping with #### headers, use friendly non-technical step-by-step language, and never output empty module headings.
    - **ivy-readme-demo-workflows**: Normalize workflow heading names by stripping leading numeric prefixes from `config.request.name` (for example `1. ...`, `1.1 ...`) before rendering `#####` workflow headings.
    - **ivy-readme-demo-workflows**: Prefer `https://market.axonivy.com/...` links over local relative links when both are available in sources.
-   - **form-components-listing**: Extract component parameters from actual `.d.json` dataclass files (source-of-truth, no fabricated attributes)
+   - **form-components-listing**: Extract component `Fields` from dialog `start` signature parameters in `<mainModule>/src_hd/**/*Process.p.json`; if no start params exist, render `- **Fields:** - (none)`.
    - **callable-sub-listing**: Include exact signatures with full parameter names and types (e.g., `writeMail(msgraph.connector.NewMail mail) -> ...`)
    - **maven-artifact-listing**: Use template variables (@artifact.id@) instead of resolved values
    - All skills must preserve inline comments, documentation, and image references from sources

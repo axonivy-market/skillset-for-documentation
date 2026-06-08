@@ -7,8 +7,12 @@ defined in [`generate-ivy-readme`](../../generate-ivy-readme/references/output-f
 
 ## Components Section Template
 
-The assembled `## Components` section must always follow this exact structure
-(headings in this exact order, no skipped levels):
+The assembled `## Components` section must always render `## Components` and must
+preserve this subsection order when content exists. Empty subsections are omitted.
+When `Callable Subprocesses`, `Dialog Components`, `Web Services`, or `Maven Artifacts` are omitted,
+append a single summary sentence below the rendered subsections:
+
+`For this market extension we do not provide any <relevant missing types>.`
 
 ```markdown
 ## Components
@@ -28,6 +32,8 @@ The assembled `## Components` section must always follow this exact structure
 ### Maven Artifacts
 
 {{mavenArtifactSection.content}}
+
+For this market extension we do not provide any {{missing of: Callable Subprocesses, Dialog Components, Web Services, Maven Artifacts}}.
 ```
 
 German equivalent (`README_DE.md`):
@@ -60,23 +66,23 @@ German equivalent (`README_DE.md`):
 | `partial` | Some content found but not complete |
 | `missing` | No content found after genuine extraction attempt |
 
-## Fallback Content Per Fragment
+## Missing Fragment Handling
 
-| Fragment | Missing fallback |
+| Fragment | Missing behavior |
 |----------|-----------------|
-| `callableSubSection` | `- No connector processes delivered by this extension.` |
-| `formComponentSection` | `- No form components delivered by this extension.` |
-| `openApiSection` | `- No information was delivered for this section.` |
-| `mavenArtifactSection` | `- No information was delivered for this section.` |
+| `callableSubSection` | Omit subsection; note may mention `Callable Subprocesses`. |
+| `formComponentSection` | Omit subsection; note may mention `Dialog Components`. |
+| `openApiSection` | Omit subsection; note may mention `Web Services`. |
+| `mavenArtifactSection` | Omit subsection; note may mention `Maven Artifacts`. |
 
 German equivalents:
 
-| Fragment | Fehlender Inhalt (DE) |
+| Fragment | Fehlendes Verhalten (DE) |
 |----------|-----------------------|
-| `callableSubSection` | `- Diese Erweiterung liefert keine Connector-Prozesse.` |
-| `formComponentSection` | `- Diese Erweiterung liefert keine Formularkomponenten.` |
-| `openApiSection` | `- Es wurden keine Informationen für diesen Abschnitt geliefert.` |
-| `mavenArtifactSection` | `- Es wurden keine Informationen für diesen Abschnitt geliefert.` |
+| `callableSubSection` | Unterabschnitt auslassen; Hinweis kann `aufrufbaren Unterprozesse` nennen. |
+| `formComponentSection` | Unterabschnitt auslassen; Hinweis kann `Dialogkomponenten` nennen. |
+| `openApiSection` | Unterabschnitt auslassen; Hinweis kann `Web-Services` nennen. |
+| `mavenArtifactSection` | Unterabschnitt auslassen; Hinweis kann `Maven-Artefakte` nennen. |
 
 ## Injection Rules
 

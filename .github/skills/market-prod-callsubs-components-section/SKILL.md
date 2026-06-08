@@ -35,8 +35,9 @@ All other sections in both files are preserved byte-for-byte.
   if they cannot be invoked as callable tools.
 - Never stop between extraction and write steps.
 - Always overwrite the `## Components` section in **both** README files in a single pass.
-- If `README_DE.md` does not yet exist, create it with only the translated Components section.
-- If `README.md` does not yet exist, create it with only the Components section (no other sections).
+- Never create new README files in this skill.
+- Fail fast if either `README.md` or `README_DE.md` does not exist.
+- Fail fast if `## Components` (EN) or `## Komponenten` (DE) heading is missing.
 
 ## Sub-skills used
 
@@ -56,6 +57,11 @@ Apply skill `ivy-readme-discover-modules` against root `pom.xml`.
 Use `mainModule`, `productModule`.
 Derive `targetReadme` and `targetReadmeDe` when omitted.
 
+When `productModule` is not provided, the skill will select a module
+directory that contains both `README.md` and `README_DE.md` and use that as
+the `productModule`. If no such directory exists the skill will fail fast
+and exit with an error (no fallback heuristics are applied).
+
 ### Step 2 — Extract fragments (run in parallel)
 
 For each sub-skill below, read that sub-skill's `SKILL.md` and execute its
@@ -66,7 +72,7 @@ extraction logic directly against repository source files:
    - For each `CallSubStart`, extract: signature name, full input param types+names,
      full result param types+names, `visual.description` if present.
    - Format as documented in `callable-sub-listing` SKILL.md.
-   - If none found: `status: missing`, content: `- No connector processes delivered by this extension.`
+  - If none found: `status: missing`, content: empty. The final fallback sentence is injected only in Step 3.
 
 2. **formComponentSection** — scan `<mainModule>/src_hd/**`
   - Find dialog process files matching `*Process.p.json`.
@@ -79,54 +85,60 @@ extraction logic directly against repository source files:
     - `Form dialog` when sibling file name matches `*.f.json`
     - If a component has no declared start params, render fields in one line as: `- **Fields:** - (none)`
    - Format as documented in `form-components-listing` SKILL.md.
-   - If none found: `status: missing`, content: `- No form components delivered by this extension.`
+  - If none found: `status: missing`, content: empty. The final fallback sentence is injected only in Step 3.
 
 3. **openApiSection** — read `<mainModule>/config/rest-clients.yaml`
   - Extract only `OpenAPI.SpecUrl` for every entry.
   - Only accept `SpecUrl` values that start with `http://` or `https://`.
   - Render URLs only (no namespace, no image syntax, no additional metadata).
-   - If none found: `status: missing`, content: `- No information was delivered for this section.`
+  - If none found: `status: missing`, content: empty. The final fallback sentence is injected only in Step 3.
 
 4. **mavenArtifactSection** — read `<productModule>/product.json`
    - Extract `maven-dependency` and `maven-import` artifacts ordered by root `pom.xml` module order.
    - Mark `maven-import` artifacts with `importInWorkspace == false` as optional.
    - Render numbered list with XML `<dependency>` blocks (no `<version>` element).
-   - If none found: `status: missing`, content: `- No information was delivered for this section.`
+  - If none found: `status: missing`, content: empty. The final fallback sentence is injected only in Step 3.
 
 ### Step 3 — Build English Components section
 
-Assemble the following Markdown block from extracted fragments.
-Use the fallback placeholder `- No information was delivered for this section.`
-for any fragment whose status is `missing`.
+Assemble the `## Components` block from extracted fragments with these rules:
+- Always render `## Components`.
+- Always render all `###` subsection headings in this exact order: `Callable Subprocesses`, `Dialog Components`, `Web Services`, `Maven Artifacts`.
+- For each subsection:
+  - If fragment status is not `missing`, render normal fragment content.
+  - If fragment status is `missing`, render exactly one fixed fallback bullet under that same subsection heading:
+    - `### Callable Subprocesses` -> `- For this market extension we do not provide any Callable Subprocesses.`
+    - `### Dialog Components` -> `- For this market extension we do not provide any Dialog Components.`
+    - `### Web Services` -> `- For this market extension we do not provide any Web Services.`
+    - `### Maven Artifacts` -> `- For this market extension we do not provide any Maven Artifacts.`
+  - The fill-in label in this fixed sentence must be exactly one of: `Callable Subprocesses`, `Dialog Components`, `Web Services`, `Maven Artifacts`.
+- Do not append one combined summary sentence at the end of `## Components`.
 
 ```markdown
 ## Components
 
 ### Callable Subprocesses
-
-{{callableSubSection.content}}
+{{render callableSubSection content OR fixed fallback line for Callable Subprocesses}}
 
 ### Dialog Components
-
-{{formComponentSection.content}}
+{{render formComponentSection content OR fixed fallback line for Dialog Components}}
 
 ### Web Services
-
-{{openApiSection.content}}
+{{render openApiSection content OR fixed fallback line for Web Services}}
 
 ### Maven Artifacts
-
-{{mavenArtifactSection.content}}
+{{render mavenArtifactSection content OR fixed fallback line for Maven Artifacts}}
 ```
 
 ### Step 4 — Inject English Components section into README.md
 
 1. Read `targetReadme`.  
+  - File must already exist.
 2. Locate the existing `## Components` heading.  
    - If found: replace from the `## Components` line through the end of the file
      (or through the line immediately before the next `## ` heading at the same depth)
      with the new Components block.  
-   - If not found: append the new Components block at the end of the file.  
+  - If not found: stop with error (do not append).  
 3. Write the result back to `targetReadme`.  
 
 Replacement boundary rules:
@@ -165,14 +177,15 @@ Standard German heading translations used in this section:
 | `## Components` | `## Komponenten` |
 | `### Callable Subprocesses` | `### Aufrufbare Unterprozesse` |
 | `### Dialog Components` | `### Dialogkomponenten` |
-| `### Web Services` | `### Web-Services` |
+| `### Web Services` | `### Webdienste` |
 | `### Maven Artifacts` | `### Maven-Artefakte` |
 | `- **Signature:**` | `- **Signatur:**` |
 | `- Input:` | `- Eingaben:` |
 | `- Result:` | `- Ergebnis:` |
-| `- No information was delivered for this section.` | `- Es wurden keine Informationen für diesen Abschnitt geliefert.` |
-| `- No connector processes delivered by this extension.` | `- Diese Erweiterung liefert keine Connector-Prozesse.` |
-| `- No form components delivered by this extension.` | `- Diese Erweiterung liefert keine Formularkomponenten.` |
+| `- For this market extension we do not provide any callable subprocesses.` | `- Fuer diese Market Extension stellen wir keine aufrufbaren Unterprozesse bereit.` |
+| `- For this market extension we do not provide any dialog components.` | `- Fuer diese Market Extension stellen wir keine Dialogkomponenten bereit.` |
+| `- For this market extension we do not provide any web services.` | `- Für diese Market-Erweiterung stellen wir keine Webdienste bereit.` |
+| `- For this market extension we do not provide any maven artifacts.` | `- Fuer diese Market Extension stellen wir keine Maven-Artefakte bereit.` |
 | `*(optional)*` | `*(optional)*` |
 | `*(dependency)*` | `*(Abhängigkeit)*` |
 | `Reusable form component` | `Wiederverwendbare Formularkomponente` |
@@ -189,8 +202,8 @@ Apply tone: `du`/`dein`, short direct sentences, benefit-led bullets, no passive
 
 Same boundary-replacement algorithm as Step 4, but applied to `targetReadmeDe`.
 
-If `README_DE.md` does not yet exist, create it containing only the translated
-Components block.
+`README_DE.md` must already exist and already contain `## Komponenten`.
+If file or heading is missing: stop with error (do not create or append).
 
 ### Step 7 — Report
 
@@ -210,6 +223,7 @@ Replace `[OK]` with `[PARTIAL]` when status=partial, and `[MISSING]` when status
 ## Execution guards
 
 - Never modify any section other than `## Components` / `## Komponenten` in existing files.
+- Never create `README.md` / `README_DE.md` from this skill.
 - Never remove the trailing newline at the end of files.
 - Never include generation timestamps, skill names, or HTML-comment metadata in the
   written Markdown output.
@@ -229,14 +243,14 @@ One executable script is provided under `scripts/`:
 
 ```bash
 # From repository root:
-bash ./.github/skills/generate-ivy-readme-components-section/scripts/generate-components-section.sh \
+bash ./.github/skills/market-prod-callsubs-components-section/scripts/generate-components-section.sh \
   <mainModule> <productModule>
 
 # Examples:
-bash ./.github/skills/generate-ivy-readme-components-section/scripts/generate-components-section.sh \
+bash ./.github/skills/market-prod-callsubs-components-section/scripts/generate-components-section.sh \
   docusign-connector docusign-connector-product
 
-bash ./.github/skills/generate-ivy-readme-components-section/scripts/generate-components-section.sh \
+bash ./.github/skills/market-prod-callsubs-components-section/scripts/generate-components-section.sh \
   docusign-connector docusign-connector-product \
   docusign-connector-product/README.md \
   docusign-connector-product/README_DE.md

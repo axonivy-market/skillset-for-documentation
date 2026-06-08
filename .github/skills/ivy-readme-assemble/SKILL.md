@@ -23,7 +23,13 @@ Assemble README from fragment inputs without recomputation.
    - If status is `success` or `partial`: inject `content` verbatim.
    - If status is `partial` and content is synthesized, inject the content with a note indicating it was auto-generated.
    - Example: "This section was auto-generated based on available data."
-   - If status is `missing` or content is empty: keep section heading and inject `- No information was delivered for this section.`
+   - If status is `missing` or content is empty: keep section heading and inject a bullet-prefixed fallback line. Default fallback: `- No information was delivered for this section.`
+     - **Components-specific fallbacks (mandatory):** when injecting missing subsections under `## Components`, emit targeted bullet sentences instead of the generic fallback. Use these exact sentences:
+       - Callable Subprocesses missing -> `- For this market extension we do not provide any callable subprocesses.`
+       - Dialog Components missing -> `- For this market extension we do not provide any dialog components.`
+       - Web Services missing -> `- For this market extension we do not provide any web services.`
+       - Maven Artifacts missing -> `- For this market extension we do not provide any maven artifacts.`
+     - **Web Services acceptance gate (mandatory):** if the fragment map contains OpenAPI evidence (`openApiSection.status in {success, partial}` and non-empty content), treat `### Web Services` as populated from `openApiSection` and do not apply the Web Services missing fallback.
    - Validate fragment quality before injection: reject pseudo-filled content (e.g., generic placeholders without extracted structure) and normalize to `missing` with the default fallback.
    - If `requiredSubsections` is provided, verify each subsection appears in `content`; for missing entries, append explicit placeholder lines under the correct section.
    - If `preserveMode=verbatim`, do not rewrap, renumber, or normalize markdown blocks.
@@ -37,6 +43,7 @@ Assemble README from fragment inputs without recomputation.
    - **Roles placement**: Insert as bullet point at start of Setup section (before steps): `- **Roles:** ...`
   - **OpenAPI placement**: Insert as bullet point WITHIN Setup section (not separate `## Components` section): `- **OpenAPI:** Spec URL`
      - If `openApiSection` is `missing` or empty, render exactly: `- **OpenAPI:** No information was delivered for this section.`
+  - **Canonical Web Services mapping (mandatory):** render `### Web Services` from `openApiSection` content. This mapping is canonical and must be applied consistently across models.
    - **Variables placement**: Inject under `## Setup` as `### Variables` subsection (not standalone section) unless style profile explicitly requests standalone.
    - **Image placement**: If an image fragment is present with `standalone=false`, place image snippets in the target sections indicated by fragment placement hints (for example intro/demo/setup). If `productImageSection` status is `missing` or empty, do NOT create a standalone `## Images` section. Instead, skip image section entirely. All images must be embedded within their related content sections (Setup, Demo, etc.).
      - **Image embedding algorithm** (required, step-aware for per-workflow demo images):
@@ -312,6 +319,7 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
 
 - **Mandatory fragments**: productDescriptionSection, keyFeatures, demoIntroSection, demoWorkflows, rolesSection, openApiSection, setupSection, variablesSection, callableSubSection, formComponentSection, mavenArtifactSection
 - **Optional fragments**:  productImageSection
+- **Acceptance validation**: if OpenAPI evidence exists (non-empty `openApiSection`), Web Services is considered covered and must not be normalized to missing.
 - Treat content as pseudo-filled if it only states availability (e.g., "present in file", "see process file") without extracted details required by that section.
 - Pseudo-filled content must be normalized to `missing` and rendered with explicit fallback text.
 - Normalization must preserve section headings and template order.

@@ -5,6 +5,8 @@
 # Regenerate ONLY the ## Components section in README.md (EN) and
 # README_DE.md (DE) for an Axon Ivy Maven product module.
 
+set -euo pipefail
+
 usage() {
   cat <<EOF
 Usage: $0 [MAIN_MODULE] [PRODUCT_MODULE] [TARGET_README] [TARGET_README_DE]
@@ -28,6 +30,25 @@ discover_modules() {
       mod=$(echo "$mod" | sed -e 's/<\/?module>//g' -e 's/^[[:space:]]*//;s/[[:space:]]*$//')
       [[ -n "$mod" ]] && modules+=("$mod")
     done < <(grep -o '<module>[^<]*</module>' "$pom" 2>/dev/null || true)
+  fi
+
+  # If modules contain Maven property placeholders like ${project.name}, try to
+  # resolve them from this POM's <name> or <artifactId> elements so they match
+  # actual directory names in the repository.
+  if [[ ${#modules[@]} -gt 0 && -f "$pom" ]]; then
+    project_name="$(grep -oP '(?<=<name>).*?(?=</name>)' "$pom" | head -n1 || true)"
+    project_artifact="$(grep -oP '(?<=<artifactId>).*?(?=</artifactId>)' "$pom" | head -n1 || true)"
+    for i in "${!modules[@]}"; do
+      m="${modules[$i]}"
+      # replace common placeholders
+      if [[ "$m" == *"\${project.name}"* ]] && [[ -n "$project_name" ]]; then
+        m="${m//\\${project.name}/$project_name}"
+      fi
+      if [[ "$m" == *"\${project.artifactId}"* ]] && [[ -n "$project_artifact" ]]; then
+        m="${m//\\${project.artifactId}/$project_artifact}"
+      fi
+      modules[$i]="$m"
+    done
   fi
 
   # Fallback: use directories at repo root when no modules found
@@ -60,19 +81,18 @@ discover_modules() {
     PRODUCT_MODULE="$ARG_PRODUCT_MODULE"
   else
     PRODUCT_MODULE=""
+    # Prefer a module directory that contains both README.md and README_DE.md
     for m in "${modules[@]}"; do
-      if [[ "$m" =~ -product$ ]] && [[ -d "$m" ]]; then
+      if [[ -d "$m" && -f "$m/README.md" && -f "$m/README_DE.md" ]]; then
         PRODUCT_MODULE="$m"
         break
       fi
     done
-    # fallback: main-product directory
-    if [[ -z "$PRODUCT_MODULE" && -n "$MAIN_MODULE" && -d "${MAIN_MODULE}-product" ]]; then
-      PRODUCT_MODULE="${MAIN_MODULE}-product"
-    fi
-    # final fallback: first module
-    if [[ -z "$PRODUCT_MODULE" && ${#modules[@]} -gt 0 ]]; then
-      PRODUCT_MODULE="${modules[0]}"
+
+    # Fail fast if no such module exists (no fallbacks)
+    if [[ -z "$PRODUCT_MODULE" ]]; then
+      echo "Error: could not find a module containing both README.md and README_DE.md" >&2
+      exit 1
     fi
   fi
 }
@@ -82,6 +102,27 @@ discover_modules
 # Derive target readme paths
 TARGET_README="${ARG_TARGET_README:-${PRODUCT_MODULE}/README.md}"
 TARGET_README_DE="${ARG_TARGET_README_DE:-${PRODUCT_MODULE}/README_DE.md}"
+
+validate_existing_target() {
+  local file="$1"
+  local expected_heading="$2"
+
+  if [[ ! -f "$file" ]]; then
+    echo "Error: target file does not exist: $file" >&2
+    return 1
+  fi
+
+  if ! grep -qE "^${expected_heading}[[:space:]]*$" "$file" 2>/dev/null; then
+    echo "Error: expected heading '${expected_heading}' not found in $file" >&2
+    return 1
+  fi
+}
+
+count_heading_occurrences() {
+  local file="$1"
+  local expected_heading="$2"
+  grep -cE "^${expected_heading}[[:space:]]*$" "$file" 2>/dev/null || echo 0
+}
 
 if ! command -v jq &>/dev/null; then
   echo "Error: 'jq' is required but not found in PATH." >&2
@@ -214,7 +255,6 @@ build_callable_sub_section() {
   CALLABLE_STATUS="MISSING"
 
   if [[ ! -d "$processes_dir" ]]; then
-    echo "- No connector processes delivered by this extension."
     return
   fi
 
@@ -257,7 +297,7 @@ build_callable_sub_section() {
         'if (.results | length) > 0 then " -> " + .results[0].name + ": " + .results[0].type else "" end')
 
       sig_line="${sig}(${in_list})${result_sig}"
-      content+="- **Signature**: ${sig_line}"$'\n'
+      content+="- **Signature:** ${sig_line}"$'\n'
 
       # Inputs
       local in_block
@@ -319,7 +359,6 @@ build_callable_sub_section() {
 
   if [[ $CALLABLE_RENDERED -eq 0 ]]; then
     CALLABLE_STATUS="MISSING"
-    echo "- No connector processes delivered by this extension."
   else
     if [[ $CALLABLE_RENDERED -lt $CALLABLE_TOTAL_STARTS ]]; then
       CALLABLE_STATUS="PARTIAL"
@@ -341,16 +380,10 @@ build_dialog_components_section() {
   FORM_STATUS="MISSING"
 
   if [[ ! -d "$src_hd" ]]; then
-    echo "- No form components delivered by this extension."
     return
   fi
 
   while IFS= read -r -d '' pfile; do
-    # Skip demo and test namespaces
-    case "$pfile" in
-      *demo*|*test*) continue ;;
-    esac
-
     local dir simple_name namespace
     dir=$(dirname "$pfile")
     simple_name=$(basename "$pfile")
@@ -429,7 +462,6 @@ build_dialog_components_section() {
 
   if [[ $FORM_COMPONENT_COUNT -eq 0 ]]; then
     FORM_STATUS="MISSING"
-    echo "- No form components delivered by this extension."
   else
     FORM_STATUS="OK"
     printf '%s' "$content"
@@ -446,7 +478,6 @@ build_web_services_section() {
   if [[ ! -f "$rest_clients" ]]; then
     WEB_ENTRIES=0
     WEB_STATUS="MISSING"
-    echo "- No information was delivered for this section."
     return
   fi
 
@@ -475,7 +506,6 @@ build_web_services_section() {
   if [[ $found -eq 0 ]]; then
     WEB_ENTRIES=0
     WEB_STATUS="MISSING"
-    echo "- No information was delivered for this section."
   else
     WEB_ENTRIES=$found
     WEB_STATUS="OK"
@@ -492,7 +522,6 @@ build_maven_artifacts_section() {
   if [[ ! -f "$product_json" ]]; then
     MAVEN_ARTIFACTS=0
     MAVEN_STATUS="MISSING"
-    echo "- No information was delivered for this section."
     return
   fi
 
@@ -563,7 +592,6 @@ build_maven_artifacts_section() {
   if [[ $idx -eq 0 ]]; then
     MAVEN_ARTIFACTS=0
     MAVEN_STATUS="MISSING"
-    echo "- No information was delivered for this section."
   else
     MAVEN_ARTIFACTS=$idx
     MAVEN_STATUS="OK"
@@ -571,9 +599,18 @@ build_maven_artifacts_section() {
   fi
 }
 
-# ---------------------------------------------------------------------------
-# 5. Assemble English Components block
-# ---------------------------------------------------------------------------
+render_section_content() {
+  local status="$1"
+  local fallback="$2"
+  local content="$3"
+
+  if [[ "$status" == "MISSING" ]]; then
+    printf '%s\n' "$fallback"
+  else
+    printf '%s\n' "$content"
+  fi
+}
+
 assemble_en() {
   local callable web_svc form_comp maven_art
   local callable_file form_file web_file maven_file
@@ -595,101 +632,146 @@ assemble_en() {
 
   rm -f "$callable_file" "$form_file" "$web_file" "$maven_file"
 
-  cat <<EOF
-## Components
+  printf '## Components\n\n'
 
-### Callable Subprocesses
+  printf '### Callable Subprocesses\n\n'
+  render_section_content "$CALLABLE_STATUS" '- For this market extension we do not provide any Callable Subprocesses.' "$callable"
+  printf '\n'
 
-${callable}
-### Dialog Components
+  printf '### Dialog Components\n\n'
+  render_section_content "$FORM_STATUS" '- For this market extension we do not provide any Dialog Components.' "$form_comp"
+  printf '\n'
 
-${form_comp}
-### Web Services
+  printf '### Web Services\n\n'
+  render_section_content "$WEB_STATUS" '- For this market extension we do not provide any Web Services.' "$web_svc"
+  printf '\n'
 
-${web_svc}
-### Maven Artifacts
-
-${maven_art}
-EOF
+  printf '### Maven Artifacts\n\n'
+  render_section_content "$MAVEN_STATUS" '- For this market extension we do not provide any Maven Artifacts.' "$maven_art"
 }
 
 # ---------------------------------------------------------------------------
 # 6. Translate to German
 # ---------------------------------------------------------------------------
+translate_de_prose() {
+  perl -0pe '
+    s/^### Callable Subprocesses$/### Aufrufbare Subprozesse/gm;
+    s/^### Dialog Components$/### Dialog-Komponenten/gm;
+    s/^### Web Services$/### Webdienste/gm;
+    s/^- \*\*Signature:\*\*/- **Signatur:**/gm;
+    s/^    - Input:$/    - Eingabe:/gm;
+    s/^    - Input: \(none\)$/    - Eingabe: (keine)/gm;
+    s/^    - Result:$/    - Ergebnis:/gm;
+    s/^    - Result: \(none\)$/    - Ergebnis: (keine)/gm;
+    s/- For this market extension we do not provide any Callable Subprocesses\./- Für diese Market-Erweiterung stellen wir keine aufrufbaren Subprozesse bereit./g;
+    s/- For this market extension we do not provide any Dialog Components\./- Für diese Market-Erweiterung stellen wir keine Dialog-Komponenten bereit./g;
+    s/- For this market extension we do not provide any Web Services\./- Für diese Market-Erweiterung stellen wir keine Webdienste bereit./g;
+    s/- For this market extension we do not provide any Maven Artifacts\./- Für diese Market-Erweiterung stellen wir keine Maven-Artefakte bereit./g;
+    s/\(no description available\)/(keine Beschreibung verfügbar)/g;
+    s/\(inferred purpose\)/(abgeleiteter Zweck)/g;
+    s/\*\*Component type:\*\*/**Komponententyp:**/g;
+    s/\*\*Fields:\*\*/**Felder:**/g;
+    s/- \*\*Fields:\*\* - \(none\)/- **Felder:** - (keine)/g;
+    s/- \*\*Fields:\*\* - \(none declared\)/- **Felder:** - (keine)/g;
+    s/\*\*Purpose:\*\*/**Zweck:**/g;
+    s/^    - Description:/    - Beschreibung:/gm;
+    s/ - The text to translate$/ - Der zu übersetzende Text/gm;
+    s/ - The wished target language$/ - Die gewünschte Zielsprache/gm;
+    s/ - The language to translate to$/ - Die Sprache, in die übersetzt werden soll/gm;
+    s/ - A file to translate \(e\.g\. docx, pdf, pptx\)$/ - Eine zu übersetzende Datei (z. B. docx, pdf, pptx)/gm;
+    s/ - Full options for rest client$/ - Vollständige Optionen für den REST-Client/gm;
+  '
+}
+
 translate_to_de() {
   # Receives English Components block on stdin; prints German block to stdout.
   # Rules: preserve code fences, inline code, URLs, XML, structural markers.
   # Translate prose, headings, bullet text, descriptions.
   sed \
     -e 's/^## Components$/## Komponenten/' \
-    -e 's/^### Callable Subprocesses$/### Aufrufbare Unterprozesse/' \
-    -e 's/^### Dialog Components$/### Dialogkomponenten/' \
-    -e 's/^### Web Services$/### Web-Services/' \
     -e 's/^### Maven Artifacts$/### Maven-Artefakte/' \
-    -e 's/^- \*\*Signature:\*\*/- **Signatur:**/g' \
-    -e 's/    - Input:$/    - Eingaben:/' \
-    -e 's/    - Input: (none)/    - Eingaben: (keine)/' \
-    -e 's/    - Result:$/    - Ergebnis:/' \
-    -e 's/    - Result: (none)/    - Ergebnis: (keine)/' \
-    -e 's/(no description available)/(keine Beschreibung verfügbar)/g' \
-    -e 's/- No connector processes delivered by this extension\./- Diese Erweiterung liefert keine Connector-Prozesse./g' \
-    -e 's/- No form components delivered by this extension\./- Diese Erweiterung liefert keine Formularkomponenten./g' \
-    -e 's/- No information was delivered for this section\./- Es wurden keine Informationen für diesen Abschnitt geliefert./g' \
     -e 's/\*(optional)\*/*(optional)*/g' \
-    -e 's/(inferred purpose)/(abgeleiteter Zweck)/g' \
-    -e 's/\*\*Component type:\*\*/**Komponententyp:**/g' \
-    -e 's/\*\*Fields:\*\*/**Felder:**/g' \
-    -e 's/- \*\*Felder:\*\* - (none)/- **Felder:** - (keine)/g' \
-    -e 's/- \*\*Fields:\*\* - (none)/- **Felder:** - (keine)/g' \
-    -e 's/- \*\*Felder:\*\* - (none declared)/- **Felder:** - (keine)/g' \
-    -e 's/- \*\*Fields:\*\* - (none declared)/- **Felder:** - (keine)/g' \
-    -e 's/\*\*Purpose:\*\*/**Zweck:**/g' \
-    -e 's/    - Description:/    - Beschreibung:/g'
+  | translate_de_prose
+}
+
+assert_de_block_is_localized() {
+  local block_file
+  block_file=$(mktemp)
+  cat - > "$block_file"
+
+  local text_only
+  text_only=$(awk '
+    BEGIN { in_code = 0 }
+    /^```/ { in_code = !in_code; next }
+    in_code { next }
+    {
+      line = $0
+      gsub(/https?:\/\/[^ )]+/, "", line)
+      print line
+    }
+  ' "$block_file")
+
+  local patterns=(
+    '^### Callable Subprocesses$'
+    '^### Dialog Components$'
+    '^### Web Services$'
+    '^### Maven Artifacts$'
+    '\*\*Signature:\*\*'
+    ' - The text to translate$'
+    ' - The wished target language$'
+    ' - The language to translate to$'
+    ' - A file to translate \(e\.g\. docx, pdf, pptx\)$'
+    ' - Full options for rest client$'
+    'For this market extension we do not provide any'
+  )
+
+  local pattern
+  for pattern in "${patterns[@]}"; do
+    if printf '%s\n' "$text_only" | grep -qE "$pattern"; then
+      rm -f "$block_file"
+      echo "Error: German Components block still contains English text matching pattern: $pattern" >&2
+      return 1
+    fi
+  done
+
+  cat "$block_file"
+  rm -f "$block_file"
 }
 
 # ---------------------------------------------------------------------------
 # 7. Inject section into a README file
-#    Replaces existing ## Components block (or ## Komponenten for DE),
-#    or appends if not present.
+#    Replaces existing heading block only (no append fallback).
 # ---------------------------------------------------------------------------
 inject_section() {
   local file="$1"
   local new_block="$2"
-  local heading_en="## Components"
-  local heading_de="## Komponenten"
+  local expected_heading="$3"
 
   if [[ ! -f "$file" ]]; then
-    # File doesn't exist yet — create it
-    mkdir -p "$(dirname "$file")"
-    printf '%s\n' "$new_block" > "$file"
-    echo "Created: $file"
-    return
+    echo "Error: target README does not exist: $file" >&2
+    return 1
   fi
 
   local tmp
   tmp=$(mktemp)
 
-  # Detect which heading variant is present (EN or DE)
-  local target_heading=""
-  if grep -qE '^## Components$' "$file" 2>/dev/null; then
-    target_heading="$heading_en"
-  elif grep -qE '^## Komponenten$' "$file" 2>/dev/null; then
-    target_heading="$heading_de"
+  if ! grep -qE "^${expected_heading}[[:space:]]*$" "$file" 2>/dev/null; then
+    echo "Error: section heading not found in $file (expected '${expected_heading}')." >&2
+    rm -f "$tmp"
+    return 1
   fi
 
-  if [[ -z "$target_heading" ]]; then
-    # Not present — append with a blank line separator
-    { cat "$file"; echo; printf '%s\n' "$new_block"; } > "$tmp"
-  else
-    # Replace region from heading through end-of-file (or next same-level heading)
-    awk -v heading="$target_heading" -v new_block="$new_block" '
-      BEGIN { in_section = 0; printed = 0 }
-      /^## / {
-        if ($0 == heading) {
+  # Replace region from heading through end-of-file (or next same-level heading)
+  awk -v heading="$expected_heading" -v new_block="$new_block" '
+    BEGIN { in_section = 0; printed = 0 }
+    {
+      line = $0
+      sub(/[ \t]+$/, "", line)
+      if (line ~ /^## /) {
+        if (line == heading) {
           in_section = 1
           next
         } else if (in_section) {
-          # We hit the next ## heading — stop skipping and print the new block before it
           if (!printed) {
             print new_block
             print ""
@@ -700,18 +782,26 @@ inject_section() {
           next
         }
       }
-      in_section { next }
-      { print }
-      END {
-        if (!printed) {
-          print new_block
-        }
+      if (in_section) {
+        next
       }
-    ' "$file" > "$tmp"
-  fi
+      print
+    }
+    END {
+      if (!printed) {
+        print new_block
+      }
+    }
+  ' "$file" > "$tmp"
 
   mv "$tmp" "$file"
   echo "Updated: $file"
+
+  # Guard: ensure section heading still exists after replacement.
+  if ! grep -qE "^${expected_heading}[[:space:]]*$" "$file" 2>/dev/null; then
+    echo "Error: expected heading missing after update in $file" >&2
+    return 1
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -723,6 +813,21 @@ echo "  productModule : $PRODUCT_MODULE"
 echo "  targetReadme  : $TARGET_README"
 echo "  targetReadmeDe: $TARGET_README_DE"
 echo
+
+echo "Validating target README files and section headings..."
+validate_existing_target "$TARGET_README" "## Components"
+validate_existing_target "$TARGET_README_DE" "## Komponenten"
+
+en_heading_count=$(count_heading_occurrences "$TARGET_README" "## Components")
+de_heading_count=$(count_heading_occurrences "$TARGET_README_DE" "## Komponenten")
+if [[ "$en_heading_count" -ne 1 ]]; then
+  echo "Error: expected exactly one '## Components' heading in $TARGET_README but found $en_heading_count" >&2
+  exit 1
+fi
+if [[ "$de_heading_count" -ne 1 ]]; then
+  echo "Error: expected exactly one '## Komponenten' heading in $TARGET_README_DE but found $de_heading_count" >&2
+  exit 1
+fi
 
 # Prepare CMS maps (for descriptions and DE substitutions)
 echo "Preparing CMS maps..."
@@ -738,13 +843,13 @@ rm -f "$en_block_file"
 # Build German block
 echo "Building German Components section..."
 # First apply CMS-provided German translations where available, then run general translation
-de_block=$(printf '%s\n' "$en_block" | apply_cms_de_translations | translate_to_de)
+de_block=$(printf '%s\n' "$en_block" | apply_cms_de_translations | translate_to_de | assert_de_block_is_localized)
 
 # Inject into README.md
-inject_section "$TARGET_README" "$en_block"
+inject_section "$TARGET_README" "$en_block" "## Components"
 
 # Inject into README_DE.md
-inject_section "$TARGET_README_DE" "$de_block"
+inject_section "$TARGET_README_DE" "$de_block" "## Komponenten"
 
 echo
 # Cleanup CMS temp files

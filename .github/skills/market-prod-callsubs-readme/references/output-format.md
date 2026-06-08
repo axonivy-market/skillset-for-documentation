@@ -62,7 +62,10 @@ When the assembler receives a fragment:
 8. **Variables missing rule**: If `variablesSection` is `missing` or empty, render no fallback sentence under `### Variables`.
 8. **Demo rule**: Render `demoIntroSection` under `## Demo`, then always render heading `### Demo Workflows` before injecting `demoWorkflows` fragment content (or fallback if missing). The assembler MUST always render heading `### Demo Workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
 9. **Demo link preference**: Prefer `https://market.axonivy.com/...` links when both market and local relative links are present for the same demo service.
-10. **Components hierarchy**: Always render `## Components` as parent heading. `Callable Subprocesses`, `Dialog Components`, `Web Services`, and `Maven Artifacts` must be `###` subsections under it.
+10. **Components hierarchy**: Always render `## Components` as parent heading. Render `Callable Subprocesses`, `Dialog Components`, `Web Services`, and `Maven Artifacts` as `###` subsections in canonical order.
+11. **Canonical Web Services mapping**: `### Web Services` is rendered from `openApiSection` content.
+12. **Acceptance check**: if `config/rest-clients.yaml` contains `OpenAPI.SpecUrl` evidence, `openApiSection` must be treated as non-missing and `### Web Services` must not render the generic missing fallback.
+13. **Web Services fallback condition**: show `- For this market extension we do not provide any Web Services.` only when no OpenAPI evidence exists after a genuine extraction attempt.
 
 ---
 
