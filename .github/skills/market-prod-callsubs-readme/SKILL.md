@@ -35,6 +35,8 @@ Autonomous execution policy (mandatory)
 - If external script dependencies (e.g., `jq`) are unavailable, automatically switch to internal source parsing (read files directly using available tools) and continue.
 - **Only normalize a fragment to `missing` after** a genuine extraction attempt has been made and truly produced no content (e.g., directory does not exist, no matching process files found).
 - Normalizing a fragment to `missing` without first attempting extraction is a violation of this policy.
+- Before assembly, produce an in-memory execution ledger entry for every required extractor with: `skill`, `readSkillMd=yes|no`, `extractionAttempted=yes|no`, `filesScanned=[...]`, `fragmentsProduced=[...]`, `status=done|missing|failed`.
+- Assembly is forbidden if any required extractor is absent from the execution ledger or has `readSkillMd=no` or `extractionAttempted=no`.
 - If `workspacePath`, `module`, `targetReadme`, or `targetReadmeDe` are omitted, derive them automatically and continue without asking the user.
 
 Configuration defaults
@@ -50,6 +52,7 @@ Runtime optimization rules (mandatory)
 - Use module-scoped extraction paths whenever possible:
    - `callable-sub-listing`: scan `<mainModule>/processes/**` first (avoid `./**/*.p.json` global scans)
    - `form-components-listing`: scan `<mainModule>/src_hd` only. Do not fallback to demo or other modules.
+   - `restClientsSection`: parse `<mainModule>/config/rest-clients.yaml` directly in this orchestration skill (no dedicated helper script in this skill directory)
    - `product-image-summary`: prefer canonical image folders (`images`, `doc/img`, `docs/images`) before any full-root fallback
 - Run independent extractors in parallel after module discovery.
 - Avoid repeated scans of the same folder tree in one run; reuse already collected file lists in-memory inside the same orchestration step.
@@ -127,6 +130,9 @@ Behavior / Steps
    - APPLY SKILL `maven-artifact-listing`
    - APPLY SKILL `product-image-summary`
    - APPLY SKILL `ivy-readme-assemble`
+   - `product-image-summary` is a mandatory extractor, not optional polish.
+   - The flow MUST execute `product-image-summary` for every README generation run before assembly, even when no local image folder is expected.
+   - Only after reading its `SKILL.md` and attempting extraction may the image fragment be normalized to `missing`.
 
 2.0 Multi-module extraction fallback (mandatory):
     - If a sub-skill scoped to `mainModule` returns `missing` but other candidate modules exist, re-run that sub-skill extraction logic across `moduleSetForExtraction` and merge deterministically.
@@ -146,20 +152,36 @@ Behavior / Steps
    - `setupSection` <- from `ivy-readme-key-features` (setup steps only, no roles/openapi inline)
    - `variablesSection` <- from `ivy-readme-key-features`
    - `openApiSection` <- from `ivy-readme-key-features` (will be placed in Setup by assembler, not separate section)
-   - `webServicesSection` (virtual) <- canonical alias of `openApiSection` for rendering under `### Web Services`
+   - `restClientsSection` <- extracted from `<mainModule>/config/rest-clients.yaml` for rendering under `### Rest Clients`
+   - `webServicesSection` <- extracted from `<mainModule>/config/webservice-clients.yaml` for rendering under `### Web Services`
    - `callableSubSection` <- from `callable-sub-listing`
    - `formComponentSection` <- from `form-components-listing`
    - `mavenArtifactSection` <- from `maven-artifact-listing`
+   - `productImageSection` <- from `product-image-summary`
 
 2.2 Pre-assembly validation gate (required):
+   - Validate the execution ledger before fragment validation.
+   - The ledger MUST contain exactly these required extractor entries before assembly: `ivy-readme-discover-modules`, `ivy-readme-key-features`, `callable-sub-listing`, `form-components-listing`, `ivy-readme-demo-workflows`, `maven-artifact-listing`, `product-image-summary`.
+    - `product-image-summary` MUST be present in the ledger for every run, regardless of whether images are ultimately found.
+   - For each required extractor entry, verify all of the following:
+     - `readSkillMd=yes`
+     - `extractionAttempted=yes`
+     - `filesScanned` is present and non-empty unless the extractor's documented scope genuinely does not require file reads
+     - `fragmentsProduced` contains at least one mapped fragment name or an explicit normalized `missing` fragment name
+   - If any required extractor entry is missing or fails these checks, treat the run as invalid and DO NOT assemble.
    - Validate all mandatory fragment mappings exist and are structurally valid (`section`, `content`, `status`).
    - If validation fails, normalize invalid/missing entries into `missing` fragments and continue.
    - **Acceptance check (mandatory)**: if `<mainModule>/config/rest-clients.yaml` contains an OpenAPI spec URL (`OpenAPI.SpecUrl`), `openApiSection` MUST NOT be normalized to `missing`.
-   - **Acceptance check (mandatory)**: when `openApiSection` has content from OpenAPI evidence, `### Web Services` MUST render that content (via `webServicesSection` alias) and MUST NOT render the generic missing fallback sentence.
+   - **Acceptance check (mandatory)**: when `<mainModule>/config/webservice-clients.yaml` contains at least one `WebServiceClients.*.OpenAPI.SpecUrl`, `webServicesSection` MUST NOT be normalized to `missing`.
+   - **Acceptance check (mandatory)**: when `<mainModule>/config/webservice-clients.yaml` has service entries but none contain `OpenAPI.SpecUrl`, `webServicesSection` MUST be normalized to `missing`.
+   - **Acceptance check (mandatory)**: when `<mainModule>/config/rest-clients.yaml` contains at least one `RestClients.*.OpenAPI.SpecUrl`, `restClientsSection` MUST NOT be normalized to `missing`.
+   - **Acceptance check (mandatory)**: when `<mainModule>/config/rest-clients.yaml` has `RestClients` entries but none contain `OpenAPI.SpecUrl`, `restClientsSection` MUST be normalized to `missing`.
    - Always create or update `README.md` when assembly is available.
 
 2.3 Dependency fallback (required):
    - If a sub-skill script cannot run due to missing tooling (e.g., `jq`) or module path mismatch, parse repository source files directly and produce equivalent fragment output.
+   - For `restClientsSection`, source parsing is the primary path in this skill and MUST emit only OpenAPI-spec bullets from `OpenAPI.SpecUrl`.
+   - For `webServicesSection`, source parsing is the primary path in this skill and MUST emit only OpenAPI-spec bullets from `OpenAPI.SpecUrl`.
    - Keep the same fragment contract and section mapping; do not stop the flow.
    - Continue to `ivy-readme-assemble` with available + normalized fragments in the same run.
 
@@ -170,36 +192,83 @@ Behavior / Steps
    - Inject sub-skill outputs verbatim using the contract defined in `output-format.md`.
    - If a Demo Workflows section is present in docs or can be inferred from demo process files, inject it as a subheading under Demo.
    - Include a Demo intro/body paragraph before Demo Workflows when available (`demoIntroSection`).
+   - Keep Setup concise; do not render full raw YAML configuration payloads (for example complete `app.yaml` samples) in generated setup steps.
+   - Setup may be sourced from parent module docs, but before assembly any fenced config/code blocks must be summarized into short action steps for the product README.
+   - If setup source contains large YAML/code snippets, summarize the required keys as short instructions instead of copying the snippet.
    - Keep variables under Setup as a `### Variables` subsection by default; do not create a standalone `## Variables` section unless style profile explicitly requires it.
    - If `variablesSection` is genuinely missing after extraction, do not render any fallback sentence under `### Variables`.
    - Do not drop sections when a fragment is empty, except inside `## Components` where empty subsections must be omitted.
    - Apply assembler fallback rules: keep heading + inject placeholder if status is `missing` or content is empty.
    - Enforce coverage gate: when fragment declares `requiredSubsections`, missing subsections must be reported and rendered with explicit placeholders.
-   - Preserve the exact fenced block containing @variables.yaml@ (including surrounding line breaks and backticks).
+   - Preserve the fenced block exactly:
+
+      ```
+      @variables.yaml@
+      ```
+      Do not replace this placeholder with expanded YAML content.
+      If the token is emitted inline, normalize it to the fenced block above before assembly.
    - Always render `## Components` as parent heading.
-    - Within `## Components`, always render `### Callable Subprocesses`, `### Dialog Components`, `### Web Services`, and `### Maven Artifacts` in this order.
-      - Canonical render rule: `### Web Services` is sourced from `openApiSection` (via `webServicesSection` alias), while OpenAPI may also remain visible in Setup when style requires it.
-      - If OpenAPI evidence exists (`rest-clients.yaml` with `OpenAPI.SpecUrl`), never mark `### Web Services` as missing.
+      - Within `## Components`, always render `### Callable Subprocesses`, `### Dialog Components`, `### Rest Clients`, `### Web Services`, and `### Maven Artifacts` in this order.
+         - Canonical render rule: `### Rest Clients` is sourced from `restClientsSection` (`config/rest-clients.yaml`).
+         - Canonical render rule: `### Web Services` is sourced from `webServicesSection` (`config/webservice-clients.yaml`).
     - If any of these subsections is missing, render one bullet fallback directly under that subsection heading (do not append a combined sentence at the end):
        - `- For this market extension we do not provide any Callable Subprocesses.`
        - `- For this market extension we do not provide any Dialog Components.`
+      - `- For this market extension we do not provide any Rest Clients.`
        - `- For this market extension we do not provide any Web Services.`
        - `- For this market extension we do not provide any Maven Artifacts.`
-      - Web Services fallback is allowed only when no OpenAPI evidence is found after a genuine extraction attempt.
+         - Rest Clients fallback is allowed only when no rest-clients evidence is found after a genuine extraction attempt.
+         - Web Services fallback is allowed only when no webservice-clients evidence is found after a genuine extraction attempt.
+   - **Rest Clients rendering gate (mandatory):** `### Rest Clients` must be rendered from `restClientsSection` as OpenAPI spec bullets only.
+      - Allowed shape per entry: `- **OpenAPI:** [<SpecLabel>](<OpenAPI.SpecUrl>)`
+         - Required subsection block shape:
+            ```markdown
+            ### Rest Clients
+
+            - **OpenAPI:** [<SpecLabel>](<OpenAPI.SpecUrl>)
+            ```
+         - Do not add descriptive prose before/after the bullet.
+      - If an entry has no `OpenAPI.SpecUrl`, skip that entry and do not fallback to `Url`.
+      - Forbidden in rendered Rest Clients content: `Url`, `Icon`, `Features`, `Properties`, `Namespace`, raw client IDs, or nested bullets under a client label.
+         - Exactness validation (mandatory): every non-empty line in `restClientsSection.content` must match `^- \*\*OpenAPI:\*\* \[[^\]]+\]\([^\)]+\)$`.
+      - If forbidden fields are present, the run is invalid and the subsection must be regenerated from OpenAPI spec links only.
+       - **Web Services rendering gate (mandatory):** `### Web Services` must be rendered from `webServicesSection` as OpenAPI spec bullets only.
+          - Allowed shape per entry: `- **OpenAPI Spec:** [<SpecLabel>](<OpenAPI.SpecUrl>)`
+         - Required subsection block shape:
+            ```markdown
+            ### Web Services
+
+            - **OpenAPI Spec:** [<SpecLabel>](<OpenAPI.SpecUrl>)
+            ```
+         - Do not add descriptive prose before/after the bullet.
+         - If an entry has no `OpenAPI.SpecUrl`, skip that entry and do not fallback to `Url`, `Wsdl`, or `WsdlUrl`.
+         - Forbidden in rendered Web Services content: `Url`, `Wsdl`, `WsdlUrl`, `Name`, `Properties`, service IDs, or nested bullets under a service label.
+         - Exactness validation (mandatory): every non-empty line in `webServicesSection.content` must match `^- \*\*OpenAPI Spec:\*\* \[[^\]]+\]\([^\)]+\)$`.
+         - If forbidden fields are present, the run is invalid and the subsection must be regenerated from OpenAPI spec links only.
    - Never render `## Callable Subprocesses` as a top-level section.
    - **CRITICAL**: Remove any footer metadata, generation timestamps, skill attribution comments, or output contract references from final output.
    - Only footer-free content appears in README.md.
    - Do not add helper sections such as `## Notes`, `## Generation Info`, or other non-template metadata headings.
 
 4. Sub-skill quality criteria (enforced):
-   - **ivy-readme-key-features**: Extract product intro with image + external links, benefit-driven key features (6 items), roles from config/roles.xml, complete Setup section with steps, the fixed literal variables placeholder block `@variables.yaml@`, OpenAPI spec info (used in Setup and as source for `### Web Services`), and optional auth/runtime sections exactly as documented.
+   - **ivy-readme-key-features**: Extract product intro with image + external links, benefit-driven key features (6 items), roles from config/roles.xml, complete Setup section with steps, the fixed literal variables placeholder block `@variables.yaml@`, OpenAPI spec info (used in Setup), and optional auth/runtime sections exactly as documented.
    - **ivy-readme-key-features**: Do not synthesize `### Azure App` heading unless that heading exists in source docs. Keep setup headings source-driven.
    - **ivy-readme-demo-workflows**: Extract demo intro paragraph + external market links BEFORE workflow steps, include module grouping with #### headers, use friendly non-technical step-by-step language, and never output empty module headings.
    - **ivy-readme-demo-workflows**: Normalize workflow heading names by stripping leading numeric prefixes from `config.request.name` (for example `1. ...`, `1.1 ...`) before rendering `#####` workflow headings.
    - **ivy-readme-demo-workflows**: Prefer `https://market.axonivy.com/...` links over local relative links when both are available in sources.
    - **form-components-listing**: Extract component `Fields` from dialog `start` signature parameters in `<mainModule>/src_hd/**/*Process.p.json`; if no start params exist, render `- **Fields:** - (none)`.
    - **callable-sub-listing**: Include exact signatures with full parameter names and types (e.g., `writeMail(msgraph.connector.NewMail mail) -> ...`)
-   - **maven-artifact-listing**: Use template variables (@artifact.id@) instead of resolved values
+   - **maven-artifact-listing**: Prefer resolved `artifactId` values from `product.json`; use template variables (for example `@artifact.id@`) only when the source itself uses placeholders.
+   - **restClientsSection extraction**: Read `<mainModule>/config/rest-clients.yaml` and render only OpenAPI spec links from `RestClients.*.OpenAPI.SpecUrl`.
+         - Output must be markdown bullets in this exact form only:
+            - `- **OpenAPI:** [<SpecLabel>](<OpenAPI.SpecUrl>)`
+      - Do not render expanded rest-client metadata (`Url`, `Icon`, `Features`, `Properties`, `Namespace`) in the final subsection.
+      - If no `OpenAPI.SpecUrl` exists after a genuine extraction attempt, normalize `restClientsSection` to `missing` and allow the canonical fallback sentence.
+   - **webServicesSection extraction**: Read `<mainModule>/config/webservice-clients.yaml` and render only OpenAPI spec links from `WebServiceClients.*.OpenAPI.SpecUrl`.
+      - Output must be markdown bullets in this exact form only:
+         - `- **OpenAPI Spec:** [<SpecLabel>](<OpenAPI.SpecUrl>)`
+      - Do not render expanded web-service metadata (`Url`, `Wsdl`, `WsdlUrl`, `Name`, `Properties`) in the final subsection.
+      - If no `OpenAPI.SpecUrl` exists after a genuine extraction attempt, normalize `webServicesSection` to `missing` and allow the canonical fallback sentence.
    - All skills must preserve inline comments, documentation, and image references from sources
 
 5. Optional quality check:
@@ -228,17 +297,20 @@ Behavior / Steps
      2. Execute the documented extraction logic directly against the repository source files (process JSON files, config YAML, src_hd, product.json, setup docs, etc.).
      3. Only after a genuine extraction attempt may a fragment be marked as `missing`.
      4. A fragment MUST NOT be normalized to `missing` solely because the sub-skill cannot be invoked as a callable tool. The extraction logic from SKILL.md MUST be executed manually instead.
+       5. Record an execution ledger entry immediately after the extraction attempt, including `filesScanned` and `fragmentsProduced`.
+    - **MANDATORY BATCH-1 COMPLETENESS GATE**: Batch 1 is incomplete until the execution ledger contains entries for all required extractors named in section 2.2. Missing ledger entries are a hard failure and assembly MUST NOT start.
    - Collect all stdout outputs in a single collection.
    - Do NOT wait for user feedback or confirmation between invocations.
    - Do NOT present an interim plan/result to the user before assembly is complete.
 
 2. **Fragment collection (batch 2 - sequential post-processing):**
+   - Materialize the execution ledger into a compact pre-assembly checklist for internal validation in this exact order: `skill | readSkillMd | extractionAttempted | filesScanned | fragmentsProduced | status`.
    - Parse all sub-skill outputs into fragment objects mapping to mandatory fragment names (see section 2.1).
    - For any sub-skill whose extraction logic was executed and genuinely produced no content (e.g., no `src_hd` directory, no matching process files), auto-normalize to `{ status: "missing", section: "...", content: "- No information was delivered for this section." }`.
    - Exception: when `section = "variablesSection"`, normalize to `{ status: "missing", section: "variablesSection", content: "" }` so `### Variables` has no fallback sentence.
    - **FORBIDDEN**: Normalizing a fragment to `missing` without first reading the sub-skill SKILL.md and attempting source-file extraction. This is a violation equivalent to skipping the sub-skill entirely.
    - Build complete fragment map WITHOUT user interaction.
-   - Populate omitted optional fragments ( `openApiSection`, image fragment) with normalized `missing` entries instead of asking whether they should be skipped.
+   - Populate omitted fragments (`openApiSection`, `restClientsSection`, `webServicesSection`, `productImageSection`) with normalized `missing` entries instead of asking whether they should be skipped, but only after their documented extraction logic has been attempted.
 
 3. **Assembly (batch 3 - single execution):**
    - Invoke `ivy-readme-assemble` ONCE with complete fragment map.
@@ -250,6 +322,7 @@ Behavior / Steps
    - Do not ask for confirmation.
 
 5. **Completion:**
+   - Report the execution ledger or checklist for all required extractors so it is visible which sub-skills were executed, which files were scanned, and which fragments were produced.
    - Report which fragments were found vs normalized to `missing`.
    - Report output path of generated `README.md`.
    - Report output path of generated `README_DE.md`.
@@ -265,6 +338,9 @@ Behavior / Steps
 - If `README_DE.md` is not written at all → VIOLATION.
 - If the runtime cannot invoke a sub-skill and the AI does not immediately execute that sub-skill's documented logic itself → VIOLATION.
 - If ANY fragment is normalized to `missing` without a prior read of that sub-skill's SKILL.md and a genuine attempt to extract from repository source files → VIOLATION (extraction-before-normalization rule).
+- If assembly starts while the execution ledger is incomplete, missing a required extractor, or lacks `filesScanned` evidence for a required extractor → VIOLATION.
+- If `product-image-summary` is treated as optional, skipped for convenience, or deferred until after assembly → VIOLATION.
+- If `product-image-summary` is absent from the execution ledger when canonical image folders or external README images exist, the run is invalid and MUST be treated as failed rather than silently continuing.
 - If the AI produces a README where ALL or MOST sections contain the fallback placeholder, and the repository contains discoverable source files (process JSON, variables.yaml, setup docs, product.json) → VIOLATION (silent skip of extraction step).
 
 Invariants

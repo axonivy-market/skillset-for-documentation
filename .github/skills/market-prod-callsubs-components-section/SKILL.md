@@ -2,7 +2,7 @@
 name: market-prod-callsubs-components-section
 description: >
   Generate and update only the ## Components section (Callable Subprocesses,
-  Dialog Components, Web Services, Maven Artifacts) in both README.md (English)
+  Dialog Components, Rest Clients, Web Services, Maven Artifacts) in both README.md (English)
   and README_DE.md (German) for an Axon Ivy Maven product module.
   Invoke with: /market-prod-callsubs-components-section
 argument-hint: 'Generate and update only the ## Components section in README.md and README_DE.md for the product module.'
@@ -46,7 +46,8 @@ All other sections in both files are preserved byte-for-byte.
 | `ivy-readme-discover-modules` | `productModule`, `mainModule`, `demoModules` |
 | `callable-sub-listing` | `callableSubSection` |
 | `form-components-listing` | `formComponentSection` |
-| `ivy-readme-key-features` (openApiSection only) | `openApiSection` |
+| Local extraction from `config/rest-clients.yaml` | `restClientsSection` |
+| Local extraction from `config/webservice-clients.yaml` | `webServicesSection` |
 | `maven-artifact-listing` | `mavenArtifactSection` |
 
 ## Behavior / Steps
@@ -87,13 +88,39 @@ extraction logic directly against repository source files:
    - Format as documented in `form-components-listing` SKILL.md.
   - If none found: `status: missing`, content: empty. The final fallback sentence is injected only in Step 3.
 
-3. **openApiSection** — read `<mainModule>/config/rest-clients.yaml`
-  - Extract only `OpenAPI.SpecUrl` for every entry.
-  - Only accept `SpecUrl` values that start with `http://` or `https://`.
-  - Render URLs only (no namespace, no image syntax, no additional metadata).
-  - If none found: `status: missing`, content: empty. The final fallback sentence is injected only in Step 3.
+3. **restClientsSection** — read `<mainModule>/config/rest-clients.yaml`
+  - Extract every key under `RestClients`.
+  - For each entry that has `OpenAPI.SpecUrl`, render **exactly one bullet** in this format (render the SpecUrl as a markdown link):
+    ```markdown
+    - **OpenAPI:** [<SpecLabel>](<OpenAPI.SpecUrl value>)
+    ```
+    - The `<SpecLabel>` SHOULD be a short, safe display label derived from the RestClient `Name` (for example `DeepL API specification`) or, if `Name` is not suitable, derived from the host token of the SpecUrl (for example `DeepL API specification` when `deepl` appears in the hostname). If no safe label can be derived, use the raw URL as link text.
+  - If an entry has no `OpenAPI.SpecUrl`, skip that entry entirely — do **not** fall back to `Url`.
+  - **Forbidden fields in output**: Do not include expanded client metadata (`Url`, `Icon`, `Features`, `Properties`, `Namespace`) as separate bullets or nested lists under the Rest Clients subsection; the subsection must remain focused on API spec links.
+  - If no entry has an `OpenAPI.SpecUrl` after scanning all entries: `status: missing`, content: empty. The final fallback sentence is injected only in Step 3.
+  - **Hard enforcement gate (mandatory):** after rendering `### Rest Clients`, the rendered subsection must not contain `Url:`, `Icon:`, `Features:`, `Properties:`, client IDs, or nested bullets under a client label. If any forbidden token appears, the run is invalid and must regenerate this subsection using only OpenAPI spec bullets (with friendly labels where derivable).
+  - Example — `SpecUrl: https://example.com/openapi.yaml`:
+    ```markdown
+    - **OpenAPI:** [Example API specification](https://example.com/openapi.yaml)
+    ```
 
-4. **mavenArtifactSection** — read `<productModule>/product.json`
+4. **webServicesSection** — read `<mainModule>/config/webservice-clients.yaml`
+  - Extract every key under `WebServiceClients`.
+  - For each entry that has `OpenAPI.SpecUrl`, render **exactly one bullet** in this format (render the SpecUrl as a markdown link):
+    ```markdown
+    - **OpenAPI Spec:** [<OpenAPI.SpecUrl value>](<OpenAPI.SpecUrl value>)
+    ```
+  - Do not render the `Name` field or service key as a link label; the bullet must contain only the raw `OpenAPI.SpecUrl` value.
+  - If an entry has no `OpenAPI.SpecUrl`, skip that entry — do **not** fall back to `Url`, `Wsdl`, or `WsdlUrl`.
+  - **Forbidden fields in output**: `Url`, `Wsdl`, `WsdlUrl`, `Properties`, and any link label — none of these may appear in the rendered bullet.
+  - If `WebServiceClients` is empty or no entry has an `OpenAPI.SpecUrl`: `status: missing`, content: empty. The final fallback sentence is injected only in Step 3.
+  - **Hard enforcement gate (mandatory):** after rendering `### Web Services`, the rendered subsection must not contain `Url:`, `Wsdl:`, `WsdlUrl:`, `Name:`, `Properties:`, service IDs, or nested bullets under a service label. If any forbidden token appears, the run is invalid and must regenerate this subsection using only `OpenAPI.SpecUrl` bullets.
+  - Example — `SpecUrl: https://example.com/ws-openapi.yaml`:
+    ```markdown
+    - **OpenAPI Spec:** [https://example.com/ws-openapi.yaml](https://example.com/ws-openapi.yaml)
+    ```
+
+5. **mavenArtifactSection** — read `<productModule>/product.json`
    - Extract `maven-dependency` and `maven-import` artifacts ordered by root `pom.xml` module order.
    - Mark `maven-import` artifacts with `importInWorkspace == false` as optional.
    - Render numbered list with XML `<dependency>` blocks (no `<version>` element).
@@ -103,15 +130,16 @@ extraction logic directly against repository source files:
 
 Assemble the `## Components` block from extracted fragments with these rules:
 - Always render `## Components`.
-- Always render all `###` subsection headings in this exact order: `Callable Subprocesses`, `Dialog Components`, `Web Services`, `Maven Artifacts`.
+- Always render all `###` subsection headings in this exact order: `Callable Subprocesses`, `Dialog Components`, `Rest Clients`, `Web Services`, `Maven Artifacts`.
 - For each subsection:
   - If fragment status is not `missing`, render normal fragment content.
   - If fragment status is `missing`, render exactly one fixed fallback bullet under that same subsection heading:
     - `### Callable Subprocesses` -> `- For this market extension we do not provide any Callable Subprocesses.`
     - `### Dialog Components` -> `- For this market extension we do not provide any Dialog Components.`
+    - `### Rest Clients` -> `- For this market extension we do not provide any Rest Clients.`
     - `### Web Services` -> `- For this market extension we do not provide any Web Services.`
     - `### Maven Artifacts` -> `- For this market extension we do not provide any Maven Artifacts.`
-  - The fill-in label in this fixed sentence must be exactly one of: `Callable Subprocesses`, `Dialog Components`, `Web Services`, `Maven Artifacts`.
+  - The fill-in label in this fixed sentence must be exactly one of: `Callable Subprocesses`, `Dialog Components`, `Rest Clients`, `Web Services`, `Maven Artifacts`.
 - Do not append one combined summary sentence at the end of `## Components`.
 
 ```markdown
@@ -123,8 +151,11 @@ Assemble the `## Components` block from extracted fragments with these rules:
 ### Dialog Components
 {{render formComponentSection content OR fixed fallback line for Dialog Components}}
 
+### Rest Clients
+{{render restClientsSection content OR fixed fallback line for Rest Clients}}
+
 ### Web Services
-{{render openApiSection content OR fixed fallback line for Web Services}}
+{{render webServicesSection content OR fixed fallback line for Web Services}}
 
 ### Maven Artifacts
 {{render mavenArtifactSection content OR fixed fallback line for Maven Artifacts}}
@@ -177,6 +208,7 @@ Standard German heading translations used in this section:
 | `## Components` | `## Komponenten` |
 | `### Callable Subprocesses` | `### Aufrufbare Unterprozesse` |
 | `### Dialog Components` | `### Dialogkomponenten` |
+| `### Rest Clients` | `### Rest-Clients` |
 | `### Web Services` | `### Webdienste` |
 | `### Maven Artifacts` | `### Maven-Artefakte` |
 | `- **Signature:**` | `- **Signatur:**` |
@@ -184,6 +216,7 @@ Standard German heading translations used in this section:
 | `- Result:` | `- Ergebnis:` |
 | `- For this market extension we do not provide any callable subprocesses.` | `- Fuer diese Market Extension stellen wir keine aufrufbaren Unterprozesse bereit.` |
 | `- For this market extension we do not provide any dialog components.` | `- Fuer diese Market Extension stellen wir keine Dialogkomponenten bereit.` |
+| `- For this market extension we do not provide any rest clients.` | `- Für diese Market-Erweiterung stellen wir keine Rest-Clients bereit.` |
 | `- For this market extension we do not provide any web services.` | `- Für diese Market-Erweiterung stellen wir keine Webdienste bereit.` |
 | `- For this market extension we do not provide any maven artifacts.` | `- Fuer diese Market Extension stellen wir keine Maven-Artefakte bereit.` |
 | `*(optional)*` | `*(optional)*` |
@@ -212,13 +245,27 @@ Output a concise summary:
 ```
 [OK]  callableSubSection   — <N callable subs from K files>
 [OK]  formComponentSection — <M components>
-[OK]  openApiSection       — <L entries>
+[OK]  restClientsSection   — <L entries>
+[OK]  webServicesSection   — <W entries>
 [OK]  mavenArtifactSection — <J artifacts>
 Written: <targetReadme>   (## Components section updated)
 Written: <targetReadmeDe> (## Komponenten section updated)
 ```
 
 Replace `[OK]` with `[PARTIAL]` when status=partial, and `[MISSING]` when status=missing.
+
+### Step 8 — Post-render strict validator (mandatory)
+
+Before writing final files, validate these exact subsection shapes:
+
+- `### Rest Clients` contains either:
+  - one or more lines matching `- **OpenAPI Spec:** \[<url>\]\(<url>\)` only, OR
+  - the fixed fallback line for Rest Clients.
+- `### Web Services` contains either:
+  - one or more lines matching `- **OpenAPI Spec:** \[<url>\]\(<url>\)` only, OR
+  - the fixed fallback line for Web Services.
+
+If any extra rendered data appears (for example client names or `Url:` lines), fail and regenerate those subsections.
 
 ## Execution guards
 
@@ -275,6 +322,8 @@ Notes:
 - Scope strictly limited to the `## Components` section.
 - Callable sub signatures are extracted with full parameter names and types.
 - Form component fields come from dialog `start` signatures (`config.input.params[]`); if none exist, render `- **Fields:** - (none)`.
+- Rest Clients are extracted from `OpenAPI.SpecUrl` in `<mainModule>/config/rest-clients.yaml`.
+- Web Services are extracted from `OpenAPI.SpecUrl` in `<mainModule>/config/webservice-clients.yaml`.
 - German translation must localize callable-sub labels (for example `Signature`, `Input`, `Result`) while preserving parameter types and names.
 - Maven artifact blocks contain `<groupId>`, `<artifactId>`, `<type>` only (no `<version>`).
 - German section uses project CMS translations when available; falls back to the

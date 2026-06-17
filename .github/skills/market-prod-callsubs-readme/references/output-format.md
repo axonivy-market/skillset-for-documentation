@@ -24,7 +24,7 @@ All sub-skills must follow a standardized output contract to ensure consistent a
 ```
 
 **Fields:**
-- **section**: Identifier for the README section (e.g., `productDescriptionSection`, `keyFeatures`, `demoIntroSection`, `demoWorkflows`, `setupSection`, `variablesSection`, `callableSubSection`, `formComponentSection`, `openApiSection`, `mavenArtifactSection`).
+- **section**: Identifier for the README section (e.g., `productDescriptionSection`, `keyFeatures`, `demoIntroSection`, `demoWorkflows`, `setupSection`, `variablesSection`, `callableSubSection`, `formComponentSection`, `restClientsSection`, `webServicesSection`, `openApiSection`, `mavenArtifactSection`).
 - **content**: Raw Markdown text. Must be present even if empty; never omit the field.
 - **status**: `success` (full content), `partial` (incomplete), `missing` (no content found).
 - **preserveMode**: `verbatim` preserves source blocks exactly (long setup/auth sections), `structured` allows deterministic restructuring.
@@ -62,10 +62,10 @@ When the assembler receives a fragment:
 8. **Variables missing rule**: If `variablesSection` is `missing` or empty, render no fallback sentence under `### Variables`.
 8. **Demo rule**: Render `demoIntroSection` under `## Demo`, then always render heading `### Demo Workflows` before injecting `demoWorkflows` fragment content (or fallback if missing). The assembler MUST always render heading `### Demo Workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
 9. **Demo link preference**: Prefer `https://market.axonivy.com/...` links when both market and local relative links are present for the same demo service.
-10. **Components hierarchy**: Always render `## Components` as parent heading. Render `Callable Subprocesses`, `Dialog Components`, `Web Services`, and `Maven Artifacts` as `###` subsections in canonical order.
-11. **Canonical Web Services mapping**: `### Web Services` is rendered from `openApiSection` content.
-12. **Acceptance check**: if `config/rest-clients.yaml` contains `OpenAPI.SpecUrl` evidence, `openApiSection` must be treated as non-missing and `### Web Services` must not render the generic missing fallback.
-13. **Web Services fallback condition**: show `- For this market extension we do not provide any Web Services.` only when no OpenAPI evidence exists after a genuine extraction attempt.
+10. **Components hierarchy**: Always render `## Components` as parent heading. Render `Callable Subprocesses`, `Dialog Components`, `Rest Clients`, `Web Services`, and `Maven Artifacts` as `###` subsections in canonical order.
+11. **Canonical Rest Clients mapping**: `### Rest Clients` is rendered from `restClientsSection` content (extracted from `config/rest-clients.yaml`).
+12. **Canonical Web Services mapping**: `### Web Services` is rendered from `webServicesSection` content (extracted from `config/webservice-clients.yaml`).
+13. **Web Services fallback condition**: show `- For this market extension we do not provide any Web Services.` only when no webservice-clients evidence exists after a genuine extraction attempt.
 
 ---
 
@@ -114,9 +114,13 @@ If no variables are found after a genuine extraction attempt, keep `### Variable
 
 {{formComponentSection}}
 
+### Rest Clients
+
+{{restClientsSection}}
+
 ### Web Services
 
-{{openApiSection}}
+{{webServicesSection}}
 
 ### Maven Artifacts
 

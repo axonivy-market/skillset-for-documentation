@@ -5,6 +5,7 @@ PROJECT_NAME="${1:?Usage: catalog-images.sh <project-name> [output-file] [demo-m
 OUTPUT_FILE="${2:-}"
 DEMO_MODULE="${3:-}"
 AUTO_EMBED="${AUTO_EMBED:-0}"
+ALLOW_ROOT_IMAGE_SCAN="${ALLOW_ROOT_IMAGE_SCAN:-0}"
 
 if [[ -z "$DEMO_MODULE" && "$PROJECT_NAME" == *-product ]]; then
     DEMO_MODULE="${PROJECT_NAME%-product}-demo"
@@ -12,15 +13,27 @@ fi
 
 # Resolve images directory: checks in order:
 #   1. {name}/images/          (standard convention)
-#   2. {name}/doc/img/         (alternative convention used by some connectors)
-#   3. {name}/                 (bare module directory fallback)
+#   2. {name}/img/             (common compact convention)
+#   3. {name}/doc/img/         (alternative convention used by some connectors)
+#   4. {name}/doc/images/
+#   5. {name}/docs/img/
+#   6. {name}/docs/images/
+#   7. {name}/                 (legacy full-root fallback, only when ALLOW_ROOT_IMAGE_SCAN=1)
 resolve_images_dir() {
     local name="$1"
     if [[ -d "${name}/images" ]]; then
         echo "${name}/images"
+    elif [[ -d "${name}/img" ]]; then
+        echo "${name}/img"
     elif [[ -d "${name}/doc/img" ]]; then
         echo "${name}/doc/img"
-    elif [[ -d "${name}" ]]; then
+    elif [[ -d "${name}/doc/images" ]]; then
+        echo "${name}/doc/images"
+    elif [[ -d "${name}/docs/img" ]]; then
+        echo "${name}/docs/img"
+    elif [[ -d "${name}/docs/images" ]]; then
+        echo "${name}/docs/images"
+    elif [[ "$ALLOW_ROOT_IMAGE_SCAN" == "1" && -d "${name}" ]]; then
         echo "${name}"
     else
         return 1
@@ -54,6 +67,18 @@ get_readme_placement() {
     elif [[ "$section" =~ setup|install ]];   then echo "## Setup"
     elif [[ "$section" =~ component|feature ]]; then echo "## Components"
     else echo "## Screenshots"
+    fi
+}
+
+to_product_relative_path() {
+    local project_name="$1"
+    local absolute_path="$2"
+    local prefix="${project_name}/"
+
+    if [[ "$absolute_path" == "$prefix"* ]]; then
+        echo "${absolute_path#$prefix}"
+    else
+        echo "$absolute_path"
     fi
 }
 
@@ -92,7 +117,7 @@ extract_external_images_from_readme() {
 
 IMAGES_DIR=$(resolve_images_dir "$PROJECT_NAME") || {
     echo "Error: Could not find directory for: $PROJECT_NAME" >&2
-    echo "Tried: ${PROJECT_NAME}/images, ${PROJECT_NAME}/" >&2
+    echo "Tried: ${PROJECT_NAME}/images, ${PROJECT_NAME}/img, ${PROJECT_NAME}/doc/img, ${PROJECT_NAME}/doc/images, ${PROJECT_NAME}/docs/img, ${PROJECT_NAME}/docs/images" >&2
     exit 1
 }
 
@@ -154,7 +179,7 @@ for subdir in "${SUBDIRS[@]}"; do
             count=$((count + 1))
             filename=$(basename "$f")
             alt=$(get_alt_text "$filename")
-            relpath="${f#./}"
+            relpath=$(to_product_relative_path "$PROJECT_NAME" "$f")
             entries+="### ${alt}\n"
             entries+="![${alt}](${relpath})\n\n"
         fi

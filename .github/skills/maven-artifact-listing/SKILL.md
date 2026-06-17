@@ -16,18 +16,23 @@ Extract Maven artifacts from `product.json`, ordered by the root `pom.xml` modul
 ## Behavior
 
 1. Read artifact coordinates from `product.json` installers (`maven-dependency` and `maven-import`).
+   - Combine artifacts from all installer sections (`maven-import`, `maven-dependency`, and other installer types that contain Maven coordinates) into a single canonical list.
+   - De-duplicate artifacts by `groupId:artifactId:type`. When the same artifact appears in multiple installer entries prefer the coordinate entry that is most concrete (i.e., does not use template placeholders) and preserve deterministic installer precedence when ties occur.
+   - Do NOT hardcode a preference that hides entire installer categories. Instead, present both `maven-import` and `maven-dependency` artifacts merged and ordered by project/module ordering (see next step).
 2. Resolve the root repository `pom.xml` module order and use that sequence as the canonical sort order for rendered artifacts.
-   - Match each artifact to its Maven module by `artifactId`.
-   - Preserve the relative order declared in the root `<modules>` section.
-   - Artifacts present in `product.json` but absent from the root module list must be appended after ordered modules, preserving their original installer order.
-3. Mark artifacts originating from `maven-import` with `importInWorkspace == false` as optional.
+   - Parse the root `pom.xml` `<modules>` list to obtain the repository's canonical module sequence.
+   - Match each artifact to a module by `artifactId` when possible. Sort matched artifacts according to the module sequence from the root POM.
+   - Any artifacts not matched to a module (for example external artifacts or those declared only in product.json) are appended after the ordered module artifacts, preserving their original appearance order from `product.json`.
+   - If module order cannot be determined (single-module repository or missing root POM), fall back to the order in which artifacts appear in `product.json`.
+3. Mark artifacts originating from `maven-import` with `importInWorkspace == false` as optional only when that flag is explicitly present and `false`.
 4. Exclude artifacts ending with `test`.
 5. Render a numbered list of artifacts and XML dependency snippets.
 6. Use template variables or resolved values:
    - Prefer resolved `artifactId` values from `product.json` when present (e.g., `idp-connector-demo`).
    - Use template variables like `@artifact.id@` only when the source product.json uses placeholders or template variables instead of concrete artifact coordinates.
 7. Formatting rules:
-   - Keep optional marker as `*(optional)*` after artifact name.
+   - List item title must be concise and use only `artifactId` (for example `deepl-connector-demo`), not full coordinates.
+   - Keep optional marker as `*(optional)*` only when optionality is explicitly known from source metadata.
    - Do not append inline metadata tuples like `(version: ..., type: ...)` to list item titles.
    - Keep `<type>...</type>` inside XML block only.
    - Omit `<version>@version@</version>`.

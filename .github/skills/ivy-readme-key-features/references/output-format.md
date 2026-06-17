@@ -85,32 +85,35 @@ Check the demo implementations we have prepared for the various services from Mi
 
 **Example output:**
 ```markdown
+1. Open your Axon Ivy application configuration.
+2. Configure `RestClients.<clientId>.Url` for your environment.
+3. Set the authentication property used by this connector (for example `RestClients.<clientId>.Properties.<authPropertyKey>`).
 
 - **OpenAPI:** the connector exposes an OpenAPI specification. External spec URL (from `config/rest-clients.yaml`):
 
     https://graphexplorerapi.azurewebsites.net/openapi?tags=...
 
-- **Configuration variables:**
-
-```
-@variables.yaml@
-```
+- Configure the required client keys in your Designer configuration (for example `RestClients.<client>.Url` and auth key variable) without copying full YAML blocks.
 
 ```
 **Required subsections:** Roles, OpenAPI, Configuration variables
 
 **Status:** `success` if all subsections found, `partial` if some missing.
 
-**Preserve mode:** `verbatim` to keep exact formatting from source README.md
+**Preserve mode:** `structured` is recommended for setup sections so long config/code snippets can be summarized.
+
+**Hard rule:** `setupSection` must not contain full raw YAML payloads (such as complete `app.yaml` examples). Keep setup steps concise and reference required keys only.
 
 ### variablesSection
 
 **Example output:**
 ```markdown
-```yaml
+```
 @variables.yaml@
 ```
 ```
+
+**Hard rule:** `variablesSection` must stay placeholder-only and must not include expanded YAML key/value content.
 
 **Status:** `success` when the fixed placeholder block is emitted.
 
@@ -125,12 +128,6 @@ Check the demo implementations we have prepared for the various services from Mi
 ```markdown
 https://graphexplorerapi.azurewebsites.net/openapi?tags=me.user,me.calendar,users.calendar,me.message,me.Actions,me.todo,me.site,sites.Actions,me.drive,me.chat,chats.chat,chats.chatMessage&openApiVersion=3&graphVersion=v1.0&format=yaml&style=PowerShell
 ```
-
-**Missing output:**
-```markdown
-- No information was delivered for this section.
-```
-
 **Status:** `success` if URL found, `missing` otherwise.
 
 ## Implementation Strategy
@@ -139,9 +136,9 @@ https://graphexplorerapi.azurewebsites.net/openapi?tags=me.user,me.calendar,user
 2. **Extract productDescriptionSection** - first 2-3 paragraphs before ### Key features
 3. **Extract keyFeatures** - content from ### Key features section
 4. **Extract demoIntroSection** - paragraph text under ## Demo before demo workflows
-5. **Extract setupSection** - complete ## Setup section with all subsections
+5. **Extract setupSection** - complete ## Setup section with all subsections, but summarize raw config/code blocks into short instructions
 6. **Extract variablesSection** - emit the literal fenced block `@variables.yaml@` exactly
 7. **Extract openApiSection** - read OpenAPI URL from `config/rest-clients.yaml`
 8. **Return all as JSON fragments** conforming to the contract above
 
-All content must be extracted verbatim from sources - no fabrication or synthesis of content.
+Content should stay source-grounded. For setup sections only, convert verbose config/code blocks into concise user steps and keep technical keys as references instead of copying full payloads.

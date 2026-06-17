@@ -8,11 +8,10 @@ defined in [`generate-ivy-readme`](../../generate-ivy-readme/references/output-f
 ## Components Section Template
 
 The assembled `## Components` section must always render `## Components` and must
-preserve this subsection order when content exists. Empty subsections are omitted.
-When `Callable Subprocesses`, `Dialog Components`, `Web Services`, or `Maven Artifacts` are omitted,
-append a single summary sentence below the rendered subsections:
-
-`For this market extension we do not provide any <relevant missing types>.`
+preserve this subsection order: `Callable Subprocesses`, `Dialog Components`,
+`Rest Clients`, `Web Services`, `Maven Artifacts`.
+If a subsection is missing, keep the heading and inject exactly one fallback bullet
+under that subsection.
 
 ```markdown
 ## Components
@@ -25,15 +24,25 @@ append a single summary sentence below the rendered subsections:
 
 {{formComponentSection.content}}
 
+### Rest Clients
+
+{{restClientsSection.content}}
+
+<!-- restClientsSection bullet format: - **OpenAPI:** [<Name or clientKey>](<OpenAPI.SpecUrl>)
+     Example: - **OpenAPI:** [deepl-connector](https://raw.githubusercontent.com/DeepLcom/openapi/main/openapi.yaml)
+     Forbidden in output: Url, Icon, Features, Properties, Namespace -->
+
 ### Web Services
 
-{{openApiSection.content}}
+{{webServicesSection.content}}
+
+<!-- webServicesSection bullet format: - **OpenAPI:** [<Name or serviceKey>](<OpenAPI.SpecUrl>)
+     Example: - **OpenAPI:** [myService](https://example.com/ws-openapi.yaml)
+     Forbidden in output: Url, Wsdl, WsdlUrl, Properties -->
 
 ### Maven Artifacts
 
 {{mavenArtifactSection.content}}
-
-For this market extension we do not provide any {{missing of: Callable Subprocesses, Dialog Components, Web Services, Maven Artifacts}}.
 ```
 
 German equivalent (`README_DE.md`):
@@ -49,9 +58,17 @@ German equivalent (`README_DE.md`):
 
 {{formComponentSection.content — translated}}
 
+### Rest-Clients
+
+{{restClientsSection.content — translated}}
+
+<!-- Same bullet format as EN. URL inside [...](url) is never translated. -->
+
 ### Web-Services
 
-{{openApiSection.content — translated}}
+{{webServicesSection.content — translated}}
+
+<!-- Same bullet format as EN. URL inside [...](url) is never translated. -->
 
 ### Maven-Artefakte
 
@@ -72,7 +89,8 @@ German equivalent (`README_DE.md`):
 |----------|-----------------|
 | `callableSubSection` | Omit subsection; note may mention `Callable Subprocesses`. |
 | `formComponentSection` | Omit subsection; note may mention `Dialog Components`. |
-| `openApiSection` | Omit subsection; note may mention `Web Services`. |
+| `restClientsSection` | Keep subsection and inject `- For this market extension we do not provide any Rest Clients.` |
+| `webServicesSection` | Keep subsection and inject `- For this market extension we do not provide any Web Services.` |
 | `mavenArtifactSection` | Omit subsection; note may mention `Maven Artifacts`. |
 
 German equivalents:
@@ -81,7 +99,8 @@ German equivalents:
 |----------|-----------------------|
 | `callableSubSection` | Unterabschnitt auslassen; Hinweis kann `aufrufbaren Unterprozesse` nennen. |
 | `formComponentSection` | Unterabschnitt auslassen; Hinweis kann `Dialogkomponenten` nennen. |
-| `openApiSection` | Unterabschnitt auslassen; Hinweis kann `Web-Services` nennen. |
+| `restClientsSection` | Unterabschnitt beibehalten und `- Für diese Market-Erweiterung stellen wir keine Rest-Clients bereit.` einfügen. |
+| `webServicesSection` | Unterabschnitt beibehalten und `- Für diese Market-Erweiterung stellen wir keine Webdienste bereit.` einfügen. |
 | `mavenArtifactSection` | Unterabschnitt auslassen; Hinweis kann `Maven-Artefakte` nennen. |
 
 ## Injection Rules

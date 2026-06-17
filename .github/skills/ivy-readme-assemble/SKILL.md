@@ -29,7 +29,7 @@ Assemble README from fragment inputs without recomputation.
        - Dialog Components missing -> `- For this market extension we do not provide any dialog components.`
        - Web Services missing -> `- For this market extension we do not provide any web services.`
        - Maven Artifacts missing -> `- For this market extension we do not provide any maven artifacts.`
-     - **Web Services acceptance gate (mandatory):** if the fragment map contains OpenAPI evidence (`openApiSection.status in {success, partial}` and non-empty content), treat `### Web Services` as populated from `openApiSection` and do not apply the Web Services missing fallback.
+    - **Web Services acceptance gate (mandatory):** evaluate `### Web Services` only from `webServicesSection` (extracted from `config/webservice-clients.yaml`). Do not treat `openApiSection` as Web Services evidence.
    - Validate fragment quality before injection: reject pseudo-filled content (e.g., generic placeholders without extracted structure) and normalize to `missing` with the default fallback.
    - If `requiredSubsections` is provided, verify each subsection appears in `content`; for missing entries, append explicit placeholder lines under the correct section.
    - If `preserveMode=verbatim`, do not rewrap, renumber, or normalize markdown blocks.
@@ -43,7 +43,7 @@ Assemble README from fragment inputs without recomputation.
    - **Roles placement**: Insert as bullet point at start of Setup section (before steps): `- **Roles:** ...`
   - **OpenAPI placement**: Insert as bullet point WITHIN Setup section (not separate `## Components` section): `- **OpenAPI:** Spec URL`
      - If `openApiSection` is `missing` or empty, render exactly: `- **OpenAPI:** No information was delivered for this section.`
-  - **Canonical Web Services mapping (mandatory):** render `### Web Services` from `openApiSection` content. This mapping is canonical and must be applied consistently across models.
+  - **Canonical Web Services mapping (mandatory):** render `### Web Services` from `webServicesSection` content (extracted from `config/webservice-clients.yaml`). This mapping is canonical and must be applied consistently across models.
    - **Variables placement**: Inject under `## Setup` as `### Variables` subsection (not standalone section) unless style profile explicitly requests standalone.
    - **Image placement**: If an image fragment is present with `standalone=false`, place image snippets in the target sections indicated by fragment placement hints (for example intro/demo/setup). If `productImageSection` status is `missing` or empty, do NOT create a standalone `## Images` section. Instead, skip image section entirely. All images must be embedded within their related content sections (Setup, Demo, etc.).
      - **Image embedding algorithm** (required, step-aware for per-workflow demo images):

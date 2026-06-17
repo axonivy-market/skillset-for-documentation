@@ -8,18 +8,18 @@ user-invocable: true
 
 # Product Image Summary
 
-Given the exact product module name, auto-discover its `images/` subdirectory, group images by folder structure, generate alt text from filenames, and output ready-to-copy markdown snippets.
+Given the exact product module name, auto-discover its product image directories, group images by folder structure, generate alt text from filenames, and output ready-to-copy markdown snippets.
 In addition, discover external image URLs used in source README files and include them as valid image evidence.
 If images are found, suggest placement (intro/demo/dashboard) and synthesize a markdown snippet for a README intro image. Produce placement hints at the individual image level so assemblers can embed images into the correct section rather than creating a separate `## Images` section.
 
 ## Inputs
 
-- **Required:** Exact product module name (e.g., `open-weather-connector-product`) — the script looks for `{name}/images/`, `{name}/doc/img`, `{name}/doc/images`, `{name}/docs/img`, `{name}/docs/images`
+- **Required:** Exact product module name (e.g., `open-weather-connector-product`) — the script looks for `{name}/images/`, `{name}/img/`, `{name}/doc/img`, `{name}/doc/images`, `{name}/docs/img`, `{name}/docs/images`
 - **Optional:** Output file path — omit to print to stdout
 
 Performance note:
-- By default, the script does not scan the whole module root recursively.
-- To force legacy full-root scanning (slower), set environment variable: `ALLOW_ROOT_IMAGE_SCAN=1`.
+- By default, the script scans only explicit image folders and does not scan the whole module root recursively.
+- To force legacy full-root scanning (slower and less safe), set environment variable: `ALLOW_ROOT_IMAGE_SCAN=1`.
 
 ### External image discovery (mandatory)
 
@@ -125,7 +125,19 @@ Recommended filename conventions:
 
 Fallback behavior:
 - If step index cannot be inferred, emit `demo:workflow-<WorkflowName>`.
-- If workflow cannot be inferred, emit `demo`.
+- If workflow cannot be inferred with confidence, skip the image instead of emitting a broad fallback placement.
+- Do not emit generic `demo` placement for unclear local images, because that can place screenshots into the wrong section.
+
+### Variant Pairing Rules (mandatory, generic)
+
+- Treat filenames without explicit step numbers as workflow-level screenshots and preserve deterministic order.
+- When multiple images map to the same workflow and no step number is available:
+  - Place base screenshots first (for example `*Demo*`, `*overview*`, `*basic*`).
+  - Place advanced/detail variants after base screenshots (for example `*Advanced*`, `*detailed*`, `*expert*`, `*pro*`).
+- Do not skip an image only because it contains an extra qualifier token (for example `Advanced`) when the remaining stem confidently matches a workflow.
+- Example (generic):
+  - `txtTranslateDemo.png` + `txtTranslateAdvancedDemo.png` -> both map to `Translate Text`; base first, advanced second.
+  - `docTranslationDemo.png` + `docTranslationAdvancedDemo.png` -> both map to `Translate File`; base first, advanced second.
 
 ### Placement inference rules (improved for auto-matching)
 
@@ -144,6 +156,17 @@ Output:
   DocumentSplitting → ["Document", "Splitting"]
   DataValidation-2 → ["Data", "Validation"] (step: 2)
   screenshot → [] (all stopwords)
+```
+
+**Step 1.1: Canonical token mapping (required)**
+```
+Normalize common equivalent terms before scoring:
+  - translate, translation, translated -> translate
+  - file, files, doc, document, pdf, docx, html, txt -> document
+  - text, string, content -> text
+
+This keeps matching generic across repositories where workflow names and file names
+use different word forms.
 ```
 
 **Step 2: Normalize tokens**
@@ -190,8 +213,12 @@ Scoring algorithm:
     
     record(workflow, score)
   
-  return workflow with highest score (if score > 0)
+  return workflow with highest score (if score >= confidence threshold)
 ```
+
+Confidence rule:
+- Use a minimum confidence threshold to avoid broad accidental matches.
+- If the threshold is not met, skip local auto-embedding for that image.
 
 **Step 5: Generate placement hint**
 ```
@@ -201,7 +228,8 @@ If matched workflow found:
   else:
     placement = "demo:workflow-{WorkflowName}"
 else:
-  placement = "demo"  // fallback to general demo section
+  placement = null
+  mark image as skipped with reason = "unmatched-or-ambiguous"
 ```
 
 **Generic Examples of matching (works for ANY project):**
@@ -209,11 +237,11 @@ else:
 - `DataValidation.png` → tokens `["Data", "Validation"]` → normalized `"data validation"` → exact match → `placement: demo:workflow-Data Validation`
 - `invoice_processing_3.png` → tokens `["invoice", "processing"]`, step `3` → match + step → `placement: demo:workflow-Invoice Processing:step-3`
 - `import-1.png` → tokens `["import"]` → matches `"User Import"` workflow → `placement: demo:workflow-User Import:step-1`
-- `screenshot.png` → tokens `[]` (all stopwords removed) → no match → `placement: demo` (fallback)
-- `ui-flow-dialog.png` → tokens `["ui", "flow", "dialog"]` → all stopwords removed → no match → `placement: demo` (fallback)
+- `screenshot.png` → tokens `[]` (all stopwords removed) → no match → `skipped: unmatched-or-ambiguous`
+- `ui-flow-dialog.png` → tokens `["ui", "flow", "dialog"]` → all stopwords removed → no match → `skipped: unmatched-or-ambiguous`
 
 #### Fuzzy Matching (for edge cases - GENERIC)
-When exact token match fails, use token overlap scoring:
+When exact token match fails, use token overlap scoring. If ambiguity remains after scoring, skip the image.
 ```
 Similarity scoring:
   - Count matching tokens: max_tokens_in(image, workflow)
@@ -227,16 +255,21 @@ Similarity scoring:
 - `step2.png` + workflows `["Data Validation"]` → step `2` detected, workflow matched → `placement: demo:workflow-Data Validation:step-2`
 - `process.png` + workflows `["Invoice Processing", "User Import"]` → `"process"` matches `"Processing"` → prefer longer match → `placement: demo:workflow-Invoice Processing`
 
+Ambiguity gate (mandatory):
+- If two or more workflow candidates share the same top score, skip the image with `reason=ambiguous-match`.
+- If top score is below confidence threshold, skip the image with `reason=low-confidence`.
+- Do not fall back to plain `demo` for local images.
+
 #### README/Context Inference
 - **Optional:** Scan surrounding content in README.md for nearby heading context
 - If image is placed under `##### [Workflow Name]` heading, use that heading as the workflow name
 - Example: Image placed under `##### Person Search` heading → force `placement: demo:workflow-Person Search`
 
 #### Placement Fallback
-- If no match found: default to `demo`
-- If image detected in `intro` context: default to `intro`
-- If image detected in `setup` context: default to `setup`
-- Do not leave `placement` empty
+- If no confident match is found for a local image: skip it from automatic embedding output.
+- If a local image filename indicates setup-noise metadata (for example `optionsObject`, config-object screenshots), skip it from automatic embedding output unless an explicit placement hint is provided.
+- If image is detected from README context and the surrounding heading is clearly `intro` or `setup`, that explicit section context may still be used.
+- Do not emit a synthetic placement for unclear local screenshots.
 
 #### Implementation in SKILL execution
 - When extracting image metadata, fetch demo workflow names from:
@@ -252,6 +285,7 @@ Embedding guidance for assemblers (required):
   - `demo` -> insert under `## Demo` before `### Demo Workflows` or beside the related demo workflow block if placement hints include `demo:workflow-<name>`
   - `setup` -> insert inside `## Setup` close to the related step or at top of `### Variables` if the image documents configuration
 - When multiple images share the same placement, assembler may insert them sequentially in the order discovered.
+- If no confident placement hint is available for a local image, omit that image entirely rather than inserting it into a broad fallback section.
 - Only when `standalone=true` should the assembler create a `## Images` section; otherwise images must be injected inline into related sections.
 - Path safety gate (mandatory): before emitting or embedding any image snippet, validate that the image path is syntactically safe and resolvable from the target README location. If a path is malformed or unresolved, skip that image and continue without inserting a broken snippet.
 

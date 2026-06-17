@@ -35,6 +35,17 @@ Generate product description, key-feature bullets, demo intro, and complete setu
    - Do not scan `<productModule>/README.md` for compatibility in the default flow.
    - If extraction detects nested top-level heading blocks (`# ...`) inside a fragment candidate, discard that candidate and continue with non-generated sources.
 
+0.2 **Hard enforcement gates (mandatory):**
+   - Every extracted fragment MUST be checked before assembly. If any forbidden field, raw technical metadata, or section-specific disallowed token appears in a candidate fragment, discard that fragment and regenerate it from allowed sources only.
+   - The generated output is invalid unless all hard gates pass for every fragment.
+   - **Key Features gate:** reject any candidate that contains raw callable-sub identifiers, input parameter names/types, result types, config keys, `visual.description`, or process JSON field names. Key feature bullets must stay user-facing and benefit-driven.
+   - **Product Description / Demo gate:** reject any candidate that introduces build badges, workflow status, navigation-only CTA lines, self-referential README links, or section headings that belong to the generated target README.
+   - **Setup gate:** reject any candidate that inlines large raw YAML/JSON/XML payloads, repeats the exact `@variables.yaml@` block outside `variablesSection`, or emits `OpenAPI.Namespace`, `Url`, `Properties`, or other client metadata as prose bullets.
+   - **Roles gate:** reject any candidate that exposes XML implementation details; only role names and their descriptions may appear.
+   - **OpenAPI gate:** reject any candidate that includes anything other than the `OpenAPI.SpecUrl` value rendered as a single link or bullet; never surface namespace, auth properties, or other rest-client fields here.
+   - **Variables gate:** the only valid content is the exact fenced placeholder block containing `@variables.yaml@`.
+   - If a fragment fails any hard gate, the run must regenerate that fragment until the forbidden token is removed.
+
 1. **Key Features** (6 bullets, benefit-driven):
    - **Format**: Each bullet MUST start with user benefit, not technical implementation.
    - **Source priority**:
@@ -53,6 +64,7 @@ Generate product description, key-feature bullets, demo intro, and complete setu
        - ✅ Right: "Send emails and manage recipients directly from your processes"
    - **Quality gate**: If synthesized features are generic (e.g., "integrates X"), mark `status=partial`
    - Preserve sourced features exactly; never rewrite approved feature text.
+   - **Hard enforcement gate:** if a candidate bullet contains a callable-sub name, parameter signature, type name, config path, process field name, or other implementation detail before the user benefit, discard it and regenerate the bullet from the service capability only.
 
    1.1 **Product Description Section** (mandatory, marketing style):
          - Extract the introductory product description block from module documentation sources.
@@ -92,6 +104,13 @@ Generate product description, key-feature bullets, demo intro, and complete setu
 2. **Setup Section** (mandatory, concise):
    - Extract all numbered steps from source documentation or configuration
    - The extracted `setupSection` MUST be returned in sequence-correct order.
+    - Parent module setup docs are valid sources, but output must be adapted for product README readability.
+   - Keep setup instructions concise and user-oriented; avoid pasting long raw configuration payloads.
+   - **YAML verbosity guard (mandatory):**
+     - Do NOT inline full `app.yaml`/`rest-clients.yaml` samples or other large fenced YAML blocks into `setupSection`.
+   - If source docs include such blocks, convert them into one short step that references the file and the required keys (for example `RestClients.<clientId>.Url` and `RestClients.<clientId>.Properties.<authPropertyKey>`) without reproducing the full YAML.
+       - When setup content is extracted from parent module `README.md`, strip fenced code blocks (yaml/json/xml) and keep only concise action-oriented steps.
+     - Keep the exact `@variables.yaml@` placeholder fenced block only in `variablesSection`; do not duplicate it in setup prose.
    - **Normalize list formatting (MANDATORY):**
      - **Step 1: Detect broken hierarchy** — Parse the source setup block line by line:
        - Count top-level numbered items (lines starting with `1.`, `2.`, `3.`, etc. at indent level 0)
@@ -164,7 +183,9 @@ Generate product description, key-feature bullets, demo intro, and complete setu
    - Template alignment rule: avoid emitting `### Azure App` as a heading in final setup fragments; convert that content into ordered setup steps under `## Setup`.
    - If source setup contains only numbered steps without subsections, keep it that way.
    - Include any additional setup notes, images references, or test confirmation steps
-   - Use `preserveMode=verbatim` when long setup blocks are found in source docs AND numbering is already correct
+   - Preserve essential intent from setup docs, but summarize long config examples instead of copying them verbatim.
+   - Prefer `preserveMode=structured` for setup when source contains long code/config blocks so summarization can be applied safely.
+   - Use `preserveMode=verbatim` only when setup content is already concise and contains no large config payloads.
    - Populate `requiredSubsections` with discovered mandatory subsections
    - Include `### Variables` as a subsection of Setup by default when variables are present
    - **CRITICAL**: OpenAPI info goes INTO Setup as a bullet point, NOT as a separate section (assembler will place it under Setup, not Components)
@@ -177,15 +198,17 @@ Generate product description, key-feature bullets, demo intro, and complete setu
    - If all roles granted: `**Roles:** Everybody (configured in config/roles.xml)`
    - Return as `rolesSection` fragment
    - If missing: set `status: missing`, content: "Roles configuration not documented"
+   - **Hard enforcement gate:** if the fragment contains `config/roles.xml`, raw XML tags, role IDs, or permission syntax instead of plain role names with descriptions, discard it and regenerate.
 
 3. **Variables Section**:
    - Do not expand `config/variables.yaml` into the README.
-   - Always return the exact literal fenced block below as `variablesSection.content`:
+   - `variablesSection.content` MUST be exactly the fenced block:
+
 ```
 @variables.yaml@
 ```
-   - Preserve the backticks and the `@variables.yaml@` token literally.
-   - If the file is missing or unreadable, still return the same literal fenced block and mark the fragment as `success` when the fixed placeholder is emitted.
+   - Never emit raw variable key/value YAML in `variablesSection`.
+   - If an extractor emits the token inline (```@variables.yaml@```), normalize it to the fenced block above.
 
    3.1 **OpenAPI Section**:
       - Extract OpenAPI endpoint/spec details from `config/rest-clients.yaml` and related docs.
@@ -193,6 +216,7 @@ Generate product description, key-feature bullets, demo intro, and complete setu
       - Do not include namespace or any non-SpecUrl metadata.
       - Return as a dedicated `openApiSection` fragment for deterministic placement in assembly.
         - If no OpenAPI spec is found, set fragment status to `missing` and content to exactly: `- No information was delivered for this section.`
+      - **Hard enforcement gate:** if the fragment contains `Namespace`, `Url`, `Properties`, `Icon`, `Features`, client IDs, or nested bullets under a client label, discard it and regenerate using only `OpenAPI.SpecUrl`.
 
 4. **Optional Authentication/Runtime Sections**:
     - If optional authentication/runtime sections are documented (e.g., JWT, OAuth consent, service accounts), extract complete setup including:
@@ -203,8 +227,10 @@ Generate product description, key-feature bullets, demo intro, and complete setu
    - Keep explanation user-oriented: what to configure, why it matters, and what success looks like
     - Preserve nested lists and code blocks exactly when extracted from docs
    - If missing, synthesize a placeholder.
+   - **Hard enforcement gate:** if the section leaks raw configuration dumps, implementation-only fields, or self-referential README headings, discard it and regenerate from the documented user-facing steps only.
 
 5. Maven Artifacts: Extract artifact coordinates from `product.json`, then order the rendered list by the root `pom.xml` module sequence. Format as numbered list with XML dependency blocks and include only `groupId`, `artifactId`, and `<type>`; do NOT include a `<version>` element in the README (the build/pipeline should resolve versions). Use `*(optional)*` marker for optional artifacts and set status:missing if none found.
+   - **Hard enforcement gate:** if any artifact block contains `<version>`, extra dependency fields, or a module order that does not match the root `pom.xml`, regenerate the artifact list.
 
 6. Return JSON fragments conforming to [output-format.md](references/output-format.md)
 
