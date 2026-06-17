@@ -230,8 +230,6 @@ Generate product description, key-feature bullets, demo intro, and complete setu
    - **Hard enforcement gate:** if the section leaks raw configuration dumps, implementation-only fields, or self-referential README headings, discard it and regenerate from the documented user-facing steps only.
 
 5. Maven Artifacts: Extract artifact coordinates from `product.json`, then order the rendered list by the root `pom.xml` module sequence. Format as numbered list with XML dependency blocks and include only `groupId`, `artifactId`, and `<type>`; do NOT include a `<version>` element in the README (the build/pipeline should resolve versions). Use `*(optional)*` marker for optional artifacts and set status:missing if none found.
-   - **Hard enforcement gate:** if any artifact block contains `<version>`, extra dependency fields, or a module order that does not match the root `pom.xml`, regenerate the artifact list.
-
 6. Return JSON fragments conforming to [output-format.md](references/output-format.md)
 
 ## Language / CMS behavior

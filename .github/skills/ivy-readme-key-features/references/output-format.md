@@ -21,7 +21,7 @@ Each sub-skill must return a JSON object conforming to this contract:
 ### productDescriptionSection
 
 **Sources (Priority order):**
-1. README/README_*.md in product module (first 1-3 paragraphs before ### Key features)
+1. README/README_*.md in product module (first 1-3 paragraphs before **Key features**)
 2. README/README_*.md in main module
 3. Configuration hints from `config/rest-clients.yaml`, `config/roles.xml`
 
@@ -47,7 +47,7 @@ This connector:
 ### keyFeatures
 
 **Sources:**
-1. `### Key features` section from README.md
+1. `**Key features**` section from README.md
 2. Process signatures from `processes/*.p.json`
 3. Configuration from `config/rest-clients.yaml`, `config/roles.xml`
 
@@ -133,8 +133,8 @@ https://graphexplorerapi.azurewebsites.net/openapi?tags=me.user,me.calendar,user
 ## Implementation Strategy
 
 1. **Read README.md** from product/main module
-2. **Extract productDescriptionSection** - first 2-3 paragraphs before ### Key features
-3. **Extract keyFeatures** - content from ### Key features section
+2. **Extract productDescriptionSection** - first 2-3 paragraphs before **Key features**
+3. **Extract keyFeatures** - content from **Key features** section
 4. **Extract demoIntroSection** - paragraph text under ## Demo before demo workflows
 5. **Extract setupSection** - complete ## Setup section with all subsections, but summarize raw config/code blocks into short instructions
 6. **Extract variablesSection** - emit the literal fenced block `@variables.yaml@` exactly

@@ -37,7 +37,7 @@ Produce a German variant of the product introduction that reads naturally to nat
 
    | English heading | German heading |
    |----------------|----------------|
-   | `# Key features` | `# Wichtigste Funktionen` |
+   | `**Key features**` | `**Wichtigste Funktionen**` |
    | `## Demo` | `## Demo` |
    | `### Demo Workflows` | `### Demo-Workflows` |
    | `## Setup` | `## Einrichtung` |
@@ -106,9 +106,12 @@ Produce a German variant of the product introduction that reads naturally to nat
 
    **Translate:**
    - All prose and bullet point text.
-   - Heading label text (e.g. `### Key features` → `### Wichtigste Funktionen`).
+   - Heading label text (e.g. `**Key features**` → `**Wichtigste Funktionen**`).
    - Image alt text (the `…` inside `![…]`).
    - Link display text (the `…` inside `[…](url)`).
+
+**Note on heading detection:**
+The translator recognizes only the bold inline marker `**Key features**` as the Key features section indicator. When `**Key features**` is present, it will be mapped to the canonical German heading `**Wichtigste Funktionen**`.
 
 2.a **Prefer repository CMS translations when available (new):**
    - Before running the general translation pass, check the product module and main module for CMS translation files (e.g., `cms/cms_de.yaml`, `cms_de.yaml` or similar paths documented in the repository).

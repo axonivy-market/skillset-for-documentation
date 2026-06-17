@@ -28,17 +28,9 @@ under that subsection.
 
 {{restClientsSection.content}}
 
-<!-- restClientsSection bullet format: - **OpenAPI:** [<Name or clientKey>](<OpenAPI.SpecUrl>)
-     Example: - **OpenAPI:** [deepl-connector](https://raw.githubusercontent.com/DeepLcom/openapi/main/openapi.yaml)
-     Forbidden in output: Url, Icon, Features, Properties, Namespace -->
-
 ### Web Services
 
 {{webServicesSection.content}}
-
-<!-- webServicesSection bullet format: - **OpenAPI:** [<Name or serviceKey>](<OpenAPI.SpecUrl>)
-     Example: - **OpenAPI:** [myService](https://example.com/ws-openapi.yaml)
-     Forbidden in output: Url, Wsdl, WsdlUrl, Properties -->
 
 ### Maven Artifacts
 
@@ -62,13 +54,9 @@ German equivalent (`README_DE.md`):
 
 {{restClientsSection.content — translated}}
 
-<!-- Same bullet format as EN. URL inside [...](url) is never translated. -->
-
 ### Web-Services
 
 {{webServicesSection.content — translated}}
-
-<!-- Same bullet format as EN. URL inside [...](url) is never translated. -->
 
 ### Maven-Artefakte
 

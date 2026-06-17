@@ -221,6 +221,7 @@ Behavior / Steps
          - Web Services fallback is allowed only when no webservice-clients evidence is found after a genuine extraction attempt.
    - **Rest Clients rendering gate (mandatory):** `### Rest Clients` must be rendered from `restClientsSection` as OpenAPI spec bullets only.
       - Allowed shape per entry: `- **OpenAPI:** [<SpecLabel>](<OpenAPI.SpecUrl>)`
+         - The `<SpecLabel>` SHOULD be a short, safe display label derived from the RestClient `Name` with " specification" appended (for example `DeepL API specification`) or, if `Name` is not suitable, derived from the host token of the SpecUrl. If no safe label can be derived, use the raw URL as link text.
          - Required subsection block shape:
             ```markdown
             ### Rest Clients
@@ -262,6 +263,7 @@ Behavior / Steps
    - **restClientsSection extraction**: Read `<mainModule>/config/rest-clients.yaml` and render only OpenAPI spec links from `RestClients.*.OpenAPI.SpecUrl`.
          - Output must be markdown bullets in this exact form only:
             - `- **OpenAPI:** [<SpecLabel>](<OpenAPI.SpecUrl>)`
+         - Derive `<SpecLabel>` from the RestClient `Name` field with " specification" appended (e.g., `DeepL API specification`), or from the hostname if `Name` is not suitable. If no safe label can be derived, use the raw URL.
       - Do not render expanded rest-client metadata (`Url`, `Icon`, `Features`, `Properties`, `Namespace`) in the final subsection.
       - If no `OpenAPI.SpecUrl` exists after a genuine extraction attempt, normalize `restClientsSection` to `missing` and allow the canonical fallback sentence.
    - **webServicesSection extraction**: Read `<mainModule>/config/webservice-clients.yaml` and render only OpenAPI spec links from `WebServiceClients.*.OpenAPI.SpecUrl`.

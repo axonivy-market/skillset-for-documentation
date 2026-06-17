@@ -18,7 +18,7 @@ Assemble README from fragment inputs without recomputation.
 
 ## Behavior
 
-1. Read template order and [output-format.md](../references/output-format.md) for fallback rules.
+1. Read template order and [output-format.md](./references/output-format.md) for fallback rules.
 2. For each fragment:
    - If status is `success` or `partial`: inject `content` verbatim.
    - If status is `partial` and content is synthesized, inject the content with a note indicating it was auto-generated.
@@ -27,8 +27,10 @@ Assemble README from fragment inputs without recomputation.
      - **Components-specific fallbacks (mandatory):** when injecting missing subsections under `## Components`, emit targeted bullet sentences instead of the generic fallback. Use these exact sentences:
        - Callable Subprocesses missing -> `- For this market extension we do not provide any callable subprocesses.`
        - Dialog Components missing -> `- For this market extension we do not provide any dialog components.`
+        - Rest Clients missing -> `- For this market extension we do not provide any rest clients.`
        - Web Services missing -> `- For this market extension we do not provide any web services.`
        - Maven Artifacts missing -> `- For this market extension we do not provide any maven artifacts.`
+      - **Rest Clients acceptance gate (mandatory):** evaluate `### Rest Clients` only from `restClientsSection` (extracted from `config/rest-clients.yaml`). Do not treat `openApiSection` as Rest Clients evidence.
     - **Web Services acceptance gate (mandatory):** evaluate `### Web Services` only from `webServicesSection` (extracted from `config/webservice-clients.yaml`). Do not treat `openApiSection` as Web Services evidence.
    - Validate fragment quality before injection: reject pseudo-filled content (e.g., generic placeholders without extracted structure) and normalize to `missing` with the default fallback.
    - If `requiredSubsections` is provided, verify each subsection appears in `content`; for missing entries, append explicit placeholder lines under the correct section.
@@ -43,6 +45,7 @@ Assemble README from fragment inputs without recomputation.
    - **Roles placement**: Insert as bullet point at start of Setup section (before steps): `- **Roles:** ...`
   - **OpenAPI placement**: Insert as bullet point WITHIN Setup section (not separate `## Components` section): `- **OpenAPI:** Spec URL`
      - If `openApiSection` is `missing` or empty, render exactly: `- **OpenAPI:** No information was delivered for this section.`
+    - **Canonical Rest Clients mapping (mandatory):** render `### Rest Clients` from `restClientsSection` content (extracted from `config/rest-clients.yaml`). This mapping is canonical and must be applied consistently across models.
   - **Canonical Web Services mapping (mandatory):** render `### Web Services` from `webServicesSection` content (extracted from `config/webservice-clients.yaml`). This mapping is canonical and must be applied consistently across models.
    - **Variables placement**: Inject under `## Setup` as `### Variables` subsection (not standalone section) unless style profile explicitly requests standalone.
    - **Image placement**: If an image fragment is present with `standalone=false`, place image snippets in the target sections indicated by fragment placement hints (for example intro/demo/setup). If `productImageSection` status is `missing` or empty, do NOT create a standalone `## Images` section. Instead, skip image section entirely. All images must be embedded within their related content sections (Setup, Demo, etc.).
@@ -303,7 +306,7 @@ If an image has `placement: demo:workflow-Document Splitting`, assembler must fi
 
 If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler must insert the image directly below step `2.` in that workflow.
    - **Critical image rule**: Do not create a standalone `## Images` section under any circumstances unless the template or fragment explicitly sets `standalone=true`. When `productImageSection` is missing/empty, simply omit the entire Images section from output — do not insert a fallback placeholder like "No images detected".
-  - **Components hierarchy rule**: Always render `## Components` and place `### Callable Subprocesses`, `### Dialog Components`, `### Web Services`, and `### Maven Artifacts` beneath it.
+  - **Components hierarchy rule**: Always render `## Components` and place `### Callable Subprocesses`, `### Dialog Components`, `### Rest Clients`, `### Web Services`, and `### Maven Artifacts` beneath it.
   - Never render `## Callable Subprocesses` as top-level heading.
   - **Variables missing rule**: Under `### Variables`, if `variablesSection` is missing/empty, do not inject fallback text.
 3. Never omit a section heading from the template. The assembler MUST always render heading `### Demo Workflows` after `demoIntroSection`, even if the `demoWorkflows` fragment is missing or empty.
@@ -317,9 +320,9 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
   - After write, validate duplicate safety: exactly one full-document start (`# ...`) should exist. If duplicate full-document starts are found, rewrite the file once with the same assembled content.
 ## Fragment validation rules
 
-- **Mandatory fragments**: productDescriptionSection, keyFeatures, demoIntroSection, demoWorkflows, rolesSection, openApiSection, setupSection, variablesSection, callableSubSection, formComponentSection, mavenArtifactSection
+- **Mandatory fragments**: productDescriptionSection, keyFeatures, demoIntroSection, demoWorkflows, rolesSection, openApiSection, setupSection, variablesSection, callableSubSection, formComponentSection, restClientsSection, webServicesSection, mavenArtifactSection
 - **Optional fragments**:  productImageSection
-- **Acceptance validation**: if OpenAPI evidence exists (non-empty `openApiSection`), Web Services is considered covered and must not be normalized to missing.
+- **Acceptance validation**: `restClientsSection` and `webServicesSection` must be validated independently from `openApiSection`; OpenAPI setup evidence does not satisfy Components coverage.
 - Treat content as pseudo-filled if it only states availability (e.g., "present in file", "see process file") without extracted details required by that section.
 - Pseudo-filled content must be normalized to `missing` and rendered with explicit fallback text.
 - Normalization must preserve section headings and template order.
@@ -334,7 +337,7 @@ If an image has `placement: demo:workflow-Document Splitting:step-2`, assembler 
       2. Key features (keyFeatures)
       3. Demo (demoIntroSection, then heading ### Demo Workflows, then demoWorkflows)
       4. Setup (rolesSection, openApiSection, variablesSection)
-      5. Components (`### Callable Subprocesses` from callableSubSection, `### Dialog Components` from formComponentSection, `### Web Services` from openApiSection, `### Maven Artifacts` from mavenArtifactSection)
+      5. Components (`### Callable Subprocesses` from callableSubSection, `### Dialog Components` from formComponentSection, `### Rest Clients` from restClientsSection, `### Web Services` from webServicesSection, `### Maven Artifacts` from mavenArtifactSection)
    - If any fragment is missing, inject the fallback placeholder at the correct position.
 - Must keep all template headings even when fragment data is missing.
 - Must never read from or mutate approved `README.md` during assembly.

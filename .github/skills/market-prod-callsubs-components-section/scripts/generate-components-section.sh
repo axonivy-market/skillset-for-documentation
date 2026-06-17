@@ -469,19 +469,18 @@ build_dialog_components_section() {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Web Services (OpenAPI from rest-clients.yaml)
+# 3. Rest Clients (OpenAPI from rest-clients.yaml)
 # ---------------------------------------------------------------------------
-build_web_services_section() {
+build_rest_clients_section() {
   local rest_clients="${MAIN_MODULE}/config/rest-clients.yaml"
   local content=""
 
   if [[ ! -f "$rest_clients" ]]; then
-    WEB_ENTRIES=0
-    WEB_STATUS="MISSING"
+    REST_ENTRIES=0
+    REST_STATUS="MISSING"
     return
   fi
 
-  # Parse entries from rest-clients.yaml and keep only public OpenAPI.SpecUrl (http/https).
   local spec_url
   spec_url=""
   local found=0
@@ -489,19 +488,63 @@ build_web_services_section() {
   while IFS= read -r line; do
     if [[ "$line" =~ SpecUrl:[[:space:]]*(.*) ]]; then
       spec_url="${BASH_REMATCH[1]}"
-      # Trim wrapping quotes if present.
       spec_url="${spec_url#\"}"
       spec_url="${spec_url%\"}"
       spec_url="${spec_url#\'}"
       spec_url="${spec_url%\'}"
+      spec_url="${spec_url//$'\r'/}"
+      spec_url=$(echo "$spec_url" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
-      # Render URL only.
       if [[ "$spec_url" =~ ^https?:// ]]; then
-        content+="- ${spec_url}"$'\n'
+        content+="- **OpenAPI:** [${spec_url}](${spec_url})"$'\n'
         found=$((found + 1))
       fi
     fi
   done < "$rest_clients"
+
+  if [[ $found -eq 0 ]]; then
+    REST_ENTRIES=0
+    REST_STATUS="MISSING"
+  else
+    REST_ENTRIES=$found
+    REST_STATUS="OK"
+    printf '%s' "$content"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 4. Web Services (OpenAPI from webservice-clients.yaml)
+# ---------------------------------------------------------------------------
+build_web_services_section() {
+  local ws_clients="${MAIN_MODULE}/config/webservice-clients.yaml"
+  local content=""
+
+  if [[ ! -f "$ws_clients" ]]; then
+    WEB_ENTRIES=0
+    WEB_STATUS="MISSING"
+    return
+  fi
+
+  local spec_url
+  spec_url=""
+  local found=0
+
+  while IFS= read -r line; do
+    if [[ "$line" =~ SpecUrl:[[:space:]]*(.*) ]]; then
+      spec_url="${BASH_REMATCH[1]}"
+      spec_url="${spec_url#\"}"
+      spec_url="${spec_url%\"}"
+      spec_url="${spec_url#\'}"
+      spec_url="${spec_url%\'}"
+      spec_url="${spec_url//$'\r'/}"
+      spec_url=$(echo "$spec_url" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+      if [[ "$spec_url" =~ ^https?:// ]]; then
+        content+="- **OpenAPI:** [${spec_url}](${spec_url})"$'\n'
+        found=$((found + 1))
+      fi
+    fi
+  done < "$ws_clients"
 
   if [[ $found -eq 0 ]]; then
     WEB_ENTRIES=0
@@ -514,7 +557,7 @@ build_web_services_section() {
 }
 
 # ---------------------------------------------------------------------------
-# 4. Maven Artifacts (from product.json)
+# 5. Maven Artifacts (from product.json)
 # ---------------------------------------------------------------------------
 build_maven_artifacts_section() {
   local product_json="${PRODUCT_MODULE}/product.json"
@@ -612,25 +655,28 @@ render_section_content() {
 }
 
 assemble_en() {
-  local callable web_svc form_comp maven_art
-  local callable_file form_file web_file maven_file
+  local callable rest_clients web_svc form_comp maven_art
+  local callable_file form_file rest_file web_file maven_file
 
   callable_file=$(mktemp)
   form_file=$(mktemp)
+  rest_file=$(mktemp)
   web_file=$(mktemp)
   maven_file=$(mktemp)
 
   build_callable_sub_section > "$callable_file"
   build_dialog_components_section > "$form_file"
+  build_rest_clients_section > "$rest_file"
   build_web_services_section > "$web_file"
   build_maven_artifacts_section > "$maven_file"
 
   callable=$(cat "$callable_file")
   form_comp=$(cat "$form_file")
+  rest_clients=$(cat "$rest_file")
   web_svc=$(cat "$web_file")
   maven_art=$(cat "$maven_file")
 
-  rm -f "$callable_file" "$form_file" "$web_file" "$maven_file"
+  rm -f "$callable_file" "$form_file" "$rest_file" "$web_file" "$maven_file"
 
   printf '## Components\n\n'
 
@@ -640,6 +686,10 @@ assemble_en() {
 
   printf '### Dialog Components\n\n'
   render_section_content "$FORM_STATUS" '- For this market extension we do not provide any Dialog Components.' "$form_comp"
+  printf '\n'
+
+  printf '### Rest Clients\n\n'
+  render_section_content "$REST_STATUS" '- For this market extension we do not provide any Rest Clients.' "$rest_clients"
   printf '\n'
 
   printf '### Web Services\n\n'
@@ -657,6 +707,7 @@ translate_de_prose() {
   perl -0pe '
     s/^### Callable Subprocesses$/### Aufrufbare Subprozesse/gm;
     s/^### Dialog Components$/### Dialog-Komponenten/gm;
+    s/^### Rest Clients$/### Rest-Clients/gm;
     s/^### Web Services$/### Webdienste/gm;
     s/^- \*\*Signature:\*\*/- **Signatur:**/gm;
     s/^    - Input:$/    - Eingabe:/gm;
@@ -665,6 +716,7 @@ translate_de_prose() {
     s/^    - Result: \(none\)$/    - Ergebnis: (keine)/gm;
     s/- For this market extension we do not provide any Callable Subprocesses\./- Für diese Market-Erweiterung stellen wir keine aufrufbaren Subprozesse bereit./g;
     s/- For this market extension we do not provide any Dialog Components\./- Für diese Market-Erweiterung stellen wir keine Dialog-Komponenten bereit./g;
+    s/- For this market extension we do not provide any Rest Clients\./- Für diese Market-Erweiterung stellen wir keine Rest-Clients bereit./g;
     s/- For this market extension we do not provide any Web Services\./- Für diese Market-Erweiterung stellen wir keine Webdienste bereit./g;
     s/- For this market extension we do not provide any Maven Artifacts\./- Für diese Market-Erweiterung stellen wir keine Maven-Artefakte bereit./g;
     s/\(no description available\)/(keine Beschreibung verfügbar)/g;
@@ -714,6 +766,7 @@ assert_de_block_is_localized() {
   local patterns=(
     '^### Callable Subprocesses$'
     '^### Dialog Components$'
+    '^### Rest Clients$'
     '^### Web Services$'
     '^### Maven Artifacts$'
     '\*\*Signature:\*\*'
@@ -869,12 +922,14 @@ status_label() {
 
 callable_label=$(status_label "$CALLABLE_STATUS")
 form_label=$(status_label "$FORM_STATUS")
+rest_label=$(status_label "$REST_STATUS")
 web_label=$(status_label "$WEB_STATUS")
 maven_label=$(status_label "$MAVEN_STATUS")
 
 printf '[%s]  %-22s — %s\n' "$callable_label" "callableSubSection" "${CALLABLE_RENDERED:-0} callable subs from ${CALLABLE_FILES:-0} files"
 printf '[%s]  %-22s — %s\n' "$form_label" "formComponentSection" "${FORM_COMPONENT_COUNT:-0} components"
-printf '[%s]  %-22s — %s\n' "$web_label" "openApiSection" "${WEB_ENTRIES:-0} entries"
+printf '[%s]  %-22s — %s\n' "$rest_label" "restClientSection" "${REST_ENTRIES:-0} entries"
+printf '[%s]  %-22s — %s\n' "$web_label" "webServiceSection" "${WEB_ENTRIES:-0} entries"
 printf '[%s]  %-22s — %s\n' "$maven_label" "mavenArtifactSection" "${MAVEN_ARTIFACTS:-0} artifacts"
 
 echo "Written: ${TARGET_README}   (## Components section updated)"
