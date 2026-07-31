@@ -1,0 +1,144 @@
+# Ivy README Key Features Output Format
+
+## Fragment Contract
+
+Each sub-skill must return a JSON object conforming to this contract:
+
+```json
+{
+  "section": "string (e.g., productDescriptionSection|keyFeatures|demoIntroSection|setupSection|variablesSection|openApiSection)",
+  "content": "string (markdown)",
+  "status": "success|partial|missing",
+  "preserveMode": "verbatim|structured",
+  "completeness": "full|partial",
+  "requiredSubsections": ["subsection1", "subsection2"],
+  "evidence": ["file1", "file2"]
+}
+```
+
+## Sections Extracted
+
+### productDescriptionSection
+
+**Sources (Priority order):**
+1. README/README_*.md in product module (first 1-3 paragraphs before **Key features**)
+2. README/README_*.md in main module
+3. Configuration hints from `config/rest-clients.yaml`, `config/roles.xml`
+
+**Filtering rules (mandatory):**
+- Ignore CI/CD badges, shields.io images, workflow status badges, and similar non-product status indicators.
+- Ignore self-referential documentation links that point to the generated README itself or to the same product module README.
+- Ignore single-line navigation CTAs such as `Read our documentation` when they do not add functional product context.
+
+**Example output:**
+```markdown
+# Product Name
+
+Axon Ivy's [Microsoft 365](https://docs.microsoft.com/en-us/graph/overview)
+connector helps you to integrate Microsoft Graph features into your process application...
+
+This connector:
+- enables fast integration into any Microsoft 365 product easily.
+- ...
+```
+
+**Status:** `success` if README.md exists and has intro paragraphs, `partial` if only config hints found, `missing` if nothing found.
+
+### keyFeatures
+
+**Sources:**
+1. `**Key features**` section from README.md
+2. Process signatures from `processes/*.p.json`
+3. Configuration from `config/rest-clients.yaml`, `config/roles.xml`
+
+**Example output:**
+```markdown
+- Integrate Microsoft 365 (Mail, Calendar, Teams, OneDrive, SharePoint) through a single connector.
+- Send emails and create calendar events directly from your Axon Ivy processes.
+- Upload and manage files on SharePoint/OneDrive...
+```
+
+**Status:** `success` if bullets found, `partial` if only inferred from processes, `missing` if nothing.
+
+### demoIntroSection
+
+**Sources:**
+1. Demo intro paragraph under `## Demo` heading in README.md
+2. Links to market.axonivy.com or demo explanations
+
+**Example output:**
+```markdown
+Check the demo implementations we have prepared for the various services from Microsoft:
+
+[Microsoft Calendar](https://market.axonivy.com/msgraph-calendar) - this connector integrates Microsoft Outlook features into your process application.
+
+[Microsoft Excel](https://market.axonivy.com/excel-connector) - ...
+```
+
+**Status:** `success` if demo intro found in README.md, `missing` otherwise.
+
+### setupSection
+
+**Sources:**
+1. `## Setup` section with all subsections (Roles, OpenAPI, Configuration variables, etc.) from README.md
+2. Configuration files: `config/roles.xml`, `config/rest-clients.yaml`, `config/variables.yaml`
+
+**Example output:**
+```markdown
+1. Open your Axon Ivy application configuration.
+2. Configure `RestClients.<clientId>.Url` for your environment.
+3. Set the authentication property used by this connector (for example `RestClients.<clientId>.Properties.<authPropertyKey>`).
+
+- **OpenAPI:** the connector exposes an OpenAPI specification. External spec URL (from `config/rest-clients.yaml`):
+
+    https://graphexplorerapi.azurewebsites.net/openapi?tags=...
+
+- Configure the required client keys in your Designer configuration (for example `RestClients.<client>.Url` and auth key variable) without copying full YAML blocks.
+
+```
+**Required subsections:** Roles, OpenAPI, Configuration variables
+
+**Status:** `success` if all subsections found, `partial` if some missing.
+
+**Preserve mode:** `structured` is recommended for setup sections so long config/code snippets can be summarized.
+
+**Hard rule:** `setupSection` must not contain full raw YAML payloads (such as complete `app.yaml` examples). Keep setup steps concise and reference required keys only.
+
+### variablesSection
+
+**Example output:**
+```markdown
+```
+@variables.yaml@
+```
+```
+
+**Hard rule:** `variablesSection` must stay placeholder-only and must not include expanded YAML key/value content.
+
+**Status:** `success` when the fixed placeholder block is emitted.
+
+**Preserve mode:** `verbatim` - preserve the fenced block exactly as a literal placeholder
+
+### openApiSection
+
+**Sources:**
+1. OpenAPI URL from `config/rest-clients.yaml` under `RestClients.<service>.OpenAPI.SpecUrl`
+
+**Example output:**
+```markdown
+https://graphexplorerapi.azurewebsites.net/openapi?tags=me.user,me.calendar,users.calendar,me.message,me.Actions,me.todo,me.site,sites.Actions,me.drive,me.chat,chats.chat,chats.chatMessage&openApiVersion=3&graphVersion=v1.0&format=yaml&style=PowerShell
+```
+**Status:** `success` if URL found, `missing` otherwise.
+
+## Implementation Strategy
+
+1. **Read README.md** from product/main module
+2. **Extract productDescriptionSection** - first 2-3 paragraphs before **Key features**
+3. **Extract keyFeatures** - content from **Key features** section
+4. **Extract demoIntroSection** - paragraph text under ## Demo before demo workflows
+5. **Extract setupSection** - complete ## Setup section with all subsections, but summarize raw config/code blocks into short instructions
+6. **Extract variablesSection** - emit the literal fenced block `@variables.yaml@` exactly
+7. **Extract openApiSection** - read OpenAPI URL from `config/rest-clients.yaml`
+8. **Return all as JSON fragments** conforming to the contract above
+
+Content should stay source-grounded. For setup sections only, convert verbose config/code blocks into concise user steps and keep technical keys as references instead of copying full payloads.

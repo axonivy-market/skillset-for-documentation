@@ -1,0 +1,938 @@
+#!/usr/bin/env bash
+# =============================================================================
+# generate-components-section.sh
+#
+# Regenerate ONLY the ## Components section in README.md (EN) and
+# README_DE.md (DE) for an Axon Ivy Maven product module.
+
+set -euo pipefail
+
+usage() {
+  cat <<EOF
+Usage: $0 [MAIN_MODULE] [PRODUCT_MODULE] [TARGET_README] [TARGET_README_DE]
+If MAIN_MODULE or PRODUCT_MODULE are omitted they are discovered from root pom.xml.
+EOF
+}
+
+# CLI args (positional)
+ARG_MAIN_MODULE="${1:-}"
+ARG_PRODUCT_MODULE="${2:-}"
+ARG_TARGET_README="${3:-}"
+ARG_TARGET_README_DE="${4:-}"
+
+discover_modules() {
+  local pom="pom.xml"
+  local modules=()
+
+  if [[ -f "$pom" ]]; then
+    # Extract <module>...</module> entries
+    while IFS= read -r mod; do
+      mod=$(echo "$mod" | sed -e 's/<\/?module>//g' -e 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      [[ -n "$mod" ]] && modules+=("$mod")
+    done < <(grep -o '<module>[^<]*</module>' "$pom" 2>/dev/null || true)
+  fi
+
+  # If modules contain Maven property placeholders like ${project.name}, try to
+  # resolve them from this POM's <name> or <artifactId> elements so they match
+  # actual directory names in the repository.
+  if [[ ${#modules[@]} -gt 0 && -f "$pom" ]]; then
+    project_name="$(grep -oP '(?<=<name>).*?(?=</name>)' "$pom" | head -n1 || true)"
+    project_artifact="$(grep -oP '(?<=<artifactId>).*?(?=</artifactId>)' "$pom" | head -n1 || true)"
+    for i in "${!modules[@]}"; do
+      m="${modules[$i]}"
+      # replace common placeholders
+      if [[ "$m" == *"\${project.name}"* ]] && [[ -n "$project_name" ]]; then
+        m="${m//\\${project.name}/$project_name}"
+      fi
+      if [[ "$m" == *"\${project.artifactId}"* ]] && [[ -n "$project_artifact" ]]; then
+        m="${m//\\${project.artifactId}/$project_artifact}"
+      fi
+      modules[$i]="$m"
+    done
+  fi
+
+  # Fallback: use directories at repo root when no modules found
+  if [[ ${#modules[@]} -eq 0 ]]; then
+    while IFS= read -r d; do
+      d=$(basename "$d")
+      modules+=("$d")
+    done < <(find . -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort)
+  fi
+
+  # Determine MAIN_MODULE: first module that is not *-product, *-demo or *-test
+  MAIN_MODULE=""
+  if [[ -n "$ARG_MAIN_MODULE" ]]; then
+    MAIN_MODULE="$ARG_MAIN_MODULE"
+  else
+    for m in "${modules[@]}"; do
+      if [[ "$m" =~ -product$ || "$m" =~ -demo$ || "$m" =~ -test$ ]]; then
+        continue
+      fi
+      MAIN_MODULE="$m"
+      break
+    done
+    if [[ -z "$MAIN_MODULE" && ${#modules[@]} -gt 0 ]]; then
+      MAIN_MODULE="${modules[0]}"
+    fi
+  fi
+
+  # Determine PRODUCT_MODULE: prefer module ending with -product
+  if [[ -n "$ARG_PRODUCT_MODULE" ]]; then
+    PRODUCT_MODULE="$ARG_PRODUCT_MODULE"
+  else
+    PRODUCT_MODULE=""
+    # Prefer a module directory that contains both README.md and README_DE.md
+    for m in "${modules[@]}"; do
+      if [[ -d "$m" && -f "$m/README.md" && -f "$m/README_DE.md" ]]; then
+        PRODUCT_MODULE="$m"
+        break
+      fi
+    done
+
+    # Fail fast if no such module exists (no fallbacks)
+    if [[ -z "$PRODUCT_MODULE" ]]; then
+      echo "Error: could not find a module containing both README.md and README_DE.md" >&2
+      exit 1
+    fi
+  fi
+}
+
+discover_modules
+
+# Derive target readme paths
+TARGET_README="${ARG_TARGET_README:-${PRODUCT_MODULE}/README.md}"
+TARGET_README_DE="${ARG_TARGET_README_DE:-${PRODUCT_MODULE}/README_DE.md}"
+
+validate_existing_target() {
+  local file="$1"
+  local expected_heading="$2"
+
+  if [[ ! -f "$file" ]]; then
+    echo "Error: target file does not exist: $file" >&2
+    return 1
+  fi
+
+  if ! grep -qE "^${expected_heading}[[:space:]]*$" "$file" 2>/dev/null; then
+    echo "Error: expected heading '${expected_heading}' not found in $file" >&2
+    return 1
+  fi
+}
+
+count_heading_occurrences() {
+  local file="$1"
+  local expected_heading="$2"
+  grep -cE "^${expected_heading}[[:space:]]*$" "$file" 2>/dev/null || echo 0
+}
+
+if ! command -v jq &>/dev/null; then
+  echo "Error: 'jq' is required but not found in PATH." >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# YAML / CMS helpers
+# ---------------------------------------------------------------------------
+parse_yaml_flat() {
+  # Simple YAML flattener: prints lines as "dotted.key<TAB>value" for scalar values.
+  # Works for simple project CMS YAML files with nested mappings.
+  local file="$1"
+  awk '
+    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    /^[ \t]*#/ { next }
+    /^[ \t]*$/ { next }
+    {
+      line = $0
+      gsub(/\t/, "  ", line)
+      match(line, /^[ \t]*/)
+      indent = RLENGTH
+      level = int(indent / 2)
+      idx = index(line, ":")
+      if (idx == 0) next
+      key = substr(line, indent + 1, idx - indent - 1)
+      value = substr(line, idx + 1)
+      key = trim(key)
+      value = trim(value)
+      path[level] = key
+      for (i = level + 1; i < 100; i++) delete path[i]
+      if (value != "") {
+        dotted = path[0]
+        for (i = 1; i <= level; i++) {
+          if (path[i] != "") {
+            if (dotted == "") dotted = path[i]
+            else dotted = dotted "." path[i]
+          }
+        }
+        if (dotted == "") dotted = key
+        print dotted "\t" value
+      }
+    }
+  ' "$file"
+}
+
+build_cms_maps() {
+  CMS_EN_MAP=""
+  CMS_DE_MAP=""
+  CMS_EN_MAP=$(mktemp)
+  CMS_DE_MAP=$(mktemp)
+
+  local en_candidates=(
+    "${MAIN_MODULE}/cms/cms_en.yaml"
+    "${MAIN_MODULE}/cms_en.yaml"
+    "${PRODUCT_MODULE}/cms/cms_en.yaml"
+    "${PRODUCT_MODULE}/cms_en.yaml"
+    "cms/cms_en.yaml"
+    "cms_en.yaml"
+  )
+
+  for f in "${en_candidates[@]}"; do
+    if [[ -f "$f" ]]; then
+      parse_yaml_flat "$f" >> "$CMS_EN_MAP"
+    fi
+  done
+
+  local de_candidates=(
+    "${PRODUCT_MODULE}/cms/cms_de.yaml"
+    "${PRODUCT_MODULE}/cms_de.yaml"
+    "${MAIN_MODULE}/cms/cms_de.yaml"
+    "${MAIN_MODULE}/cms_de.yaml"
+    "cms/cms_de.yaml"
+    "cms_de.yaml"
+  )
+  for f in "${de_candidates[@]}"; do
+    if [[ -f "$f" ]]; then
+      parse_yaml_flat "$f" >> "$CMS_DE_MAP"
+    fi
+  done
+
+  # Deduplicate by key, keep first occurrence
+  if [[ -f "$CMS_EN_MAP" ]]; then
+    awk -F"\t" '!seen[$1]++ { print }' "$CMS_EN_MAP" > "${CMS_EN_MAP}.uniq" && mv "${CMS_EN_MAP}.uniq" "$CMS_EN_MAP"
+  fi
+  if [[ -f "$CMS_DE_MAP" ]]; then
+    awk -F"\t" '!seen[$1]++ { print }' "$CMS_DE_MAP" > "${CMS_DE_MAP}.uniq" && mv "${CMS_DE_MAP}.uniq" "$CMS_DE_MAP"
+  fi
+}
+
+apply_cms_de_translations() {
+  # Read stdin, replace occurrences of English CMS strings with German counterparts
+  # based on the flattened CMS maps. This performs simple literal substitutions.
+  local infile
+  infile=$(mktemp)
+  cat - > "$infile"
+  if [[ ! -f "$CMS_EN_MAP" || ! -f "$CMS_DE_MAP" ]]; then
+    cat "$infile"
+    rm -f "$infile"
+    return
+  fi
+
+  # For each key present in both maps, replace the English value with German value.
+  while IFS=$'\t' read -r key enval; do
+    # find german counterpart
+    deval=$(awk -F"\t" -v k="$key" '$1==k{print $2; exit}' "$CMS_DE_MAP" 2>/dev/null || true)
+    if [[ -n "$deval" && -n "$enval" ]]; then
+      # escape for sed
+      en_esc=$(printf '%s' "$enval" | sed -e 's/[\/&]/\\&/g')
+      de_esc=$(printf '%s' "$deval" | sed -e 's/[\/&]/\\&/g')
+      sed -i "s/$en_esc/$de_esc/g" "$infile" 2>/dev/null || true
+    fi
+  done < "$CMS_EN_MAP"
+
+  cat "$infile"
+  rm -f "$infile"
+}
+
+# ---------------------------------------------------------------------------
+# 1. Callable Subprocesses
+# ---------------------------------------------------------------------------
+build_callable_sub_section() {
+  local processes_dir="${MAIN_MODULE}/processes"
+  local content=""
+  local found=0
+  # global counters
+  CALLABLE_FILES=0
+  CALLABLE_TOTAL_STARTS=0
+  CALLABLE_RENDERED=0
+  CALLABLE_STATUS="MISSING"
+
+  if [[ ! -d "$processes_dir" ]]; then
+    return
+  fi
+
+  # Collect all *.p.json files recursively (sorted for determinism)
+  while IFS= read -r -d '' pfile; do
+    local kind
+    kind=$(jq -r '.kind // empty' "$pfile" 2>/dev/null || true)
+    [[ "$kind" != "CALLABLE_SUB" ]] && continue
+
+    local start_count
+    start_count=$(jq '[.elements[]? | select(.type == "CallSubStart")] | length' "$pfile" 2>/dev/null || echo 0)
+    [[ "$start_count" -eq 0 ]] && continue
+    CALLABLE_TOTAL_STARTS=$((CALLABLE_TOTAL_STARTS + start_count))
+    CALLABLE_FILES=$((CALLABLE_FILES + 1))
+
+    found=1
+    local fname
+    fname=$(basename "$pfile")
+    content+="#### ${fname}"$'\n\n'
+    # Iterate over each CallSubStart
+    local file_rendered=0
+    while IFS= read -r entry; do
+      CALLABLE_RENDERED=$((CALLABLE_RENDERED + 1))
+      file_rendered=$((file_rendered + 1))
+      local sig input_params result_params vis_desc
+
+      sig=$(echo "$entry" | jq -r '.sig // ""')
+      vis_desc=$(echo "$entry" | jq -r '.desc // ""')
+
+      # Build signature line: name(Type name, Type name) -> resultVar: ResultType
+      local in_list result_list sig_line
+      in_list=$(echo "$entry" | jq -r \
+        '.inputs | if length == 0 then "" else map(.type + " " + .name) | join(", ") end')
+      result_list=$(echo "$entry" | jq -r \
+        '.results | if length == 0 then "" else .[0].type + " " + .[0].name else . end // ""' \
+        2>/dev/null || echo "")
+      # Simpler result string
+      local result_sig
+      result_sig=$(echo "$entry" | jq -r \
+        'if (.results | length) > 0 then " -> " + .results[0].name + ": " + .results[0].type else "" end')
+
+      sig_line="${sig}(${in_list})${result_sig}"
+      content+="- **Signature:** ${sig_line}"$'\n'
+
+      # Inputs
+      local in_block
+      in_block=$(echo "$entry" | jq -r \
+        '.inputs
+        | if length == 0 then "    - Input: (none)"
+          else "    - Input:\n" + (
+            map(
+              (.desc // "" | gsub("^\\s+|\\s+$"; "")) as $d
+              | "        - `" + .name + "` (" + .type + ")"
+                + (if ($d != "" and $d != "-" and $d != "--" and $d != "—" and ($d | ascii_downcase) != "n/a")
+                   then " - " + $d
+                   else ""
+                   end)
+            )
+            | join("\n")
+          )
+          end')
+      content+="${in_block}"$'\n'
+
+      # Results
+      local res_block
+      res_block=$(echo "$entry" | jq -r \
+        '.results
+        | if length == 0 then "    - Result: (none)"
+          else "    - Result:\n" + (
+            map(
+              (.desc // "" | gsub("^\\s+|\\s+$"; "")) as $d
+              | "        - `" + .name + "` (" + .type + ")"
+                + (if ($d != "" and $d != "-" and $d != "--" and $d != "—" and ($d | ascii_downcase) != "n/a")
+                   then " - " + $d
+                   else ""
+                   end)
+            )
+            | join("\n")
+          )
+          end')
+      content+="${res_block}"$'\n'
+
+      # Optional visual description
+      if [[ -n "$vis_desc" ]]; then
+        content+="    - Description: ${vis_desc}"$'\n'
+      fi
+
+      content+=$'\n'
+    done < <(jq -c '
+      .elements[]?
+      | select(.type == "CallSubStart")
+      | {
+          sig: (.config.signature // (.name | gsub("\\(.*"; ""))),
+          desc: (.visual.description // ""),
+          inputs: ((.config.input.params // .config.parameter.params // [])
+                   | map({ name: (.name // ""), type: (.type // ""), desc: (.desc // "") })),
+          results: ((.config.result.params // [])
+                    | map({ name: (.name // ""), type: (.type // ""), desc: (.desc // "") }))
+        }
+    ' "$pfile" 2>/dev/null)
+  done < <(find "${processes_dir}" -type f -name '*.p.json' -print0 | sort -z)
+
+  if [[ $CALLABLE_RENDERED -eq 0 ]]; then
+    CALLABLE_STATUS="MISSING"
+  else
+    if [[ $CALLABLE_RENDERED -lt $CALLABLE_TOTAL_STARTS ]]; then
+      CALLABLE_STATUS="PARTIAL"
+    else
+      CALLABLE_STATUS="OK"
+    fi
+    printf '%s' "$content"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 2. Dialog Components (main module src_hd only)
+# ---------------------------------------------------------------------------
+build_dialog_components_section() {
+  local src_hd="${MAIN_MODULE}/src_hd"
+  local content=""
+  local found=0
+  FORM_COMPONENT_COUNT=0
+  FORM_STATUS="MISSING"
+
+  if [[ ! -d "$src_hd" ]]; then
+    return
+  fi
+
+  while IFS= read -r -d '' pfile; do
+    local dir simple_name namespace
+    dir=$(dirname "$pfile")
+    simple_name=$(basename "$pfile")
+    simple_name="${simple_name%Process.p.json}"
+    namespace=$(echo "${dir#${src_hd}/}" | tr '/' '.')
+    [[ -z "$simple_name" ]] && continue
+
+    # Only include dialog processes that expose start signature
+    local has_start
+    has_start=$(jq -r '[.elements[]? | select((.config.signature // "") == "start")] | length' "$pfile" 2>/dev/null || echo 0)
+    [[ "$has_start" -eq 0 ]] && continue
+
+    found=1
+    FORM_COMPONENT_COUNT=$((FORM_COMPONENT_COUNT + 1))
+
+    local xhtml comp_type
+    xhtml=$(find "$dir" -maxdepth 1 -type f -name '*.xhtml' | head -n1 || true)
+
+    # Component type is restricted to 3 values only: Component dialog, UI dialog, Form dialog.
+    # Priority: Form dialog (*.f.json) > Component (<cc:interface>) > UI dialog (<ui:composition> or fallback)
+    if find "$dir" -maxdepth 1 -type f -name '*.f.json' | grep -q .; then
+      comp_type="Form dialog"
+    elif [[ -n "$xhtml" ]] && grep -qiE '<cc:interface([[:space:]>])' "$xhtml" 2>/dev/null; then
+      comp_type="Component dialog"
+    else
+      comp_type="UI dialog"
+    fi
+
+    local purpose_line="(not documented in source)"
+    content+="#### ${simple_name}"$'\n\n'
+    content+="- **Namespace:** ${namespace:-(unknown)}"$'\n'
+    content+="- **Component type:** ${comp_type}"$'\n'
+
+    # Fields from process start signature (preferred source): use config.input.params of the start signature
+    local fields_md
+    fields_md=$(jq -r '
+      [
+        .elements[]?
+        | select((.config.signature // "") == "start")
+        | .config.input.params[]?
+      ]
+      | map(
+          ((.desc // "") | gsub("^\\s+|\\s+$"; "")) as $d
+          | "    - `" + (.name // "") + "` (" + (.type // "") + ")"
+            + (if ($d != "" and $d != "-" and $d != "--" and $d != "—" and ($d | ascii_downcase) != "n/a")
+               then " — " + $d
+               else ""
+               end)
+        )
+      | join("\n")
+    ' "$pfile" 2>/dev/null || true)
+
+    # Emit Fields in fixed section shape.
+    if [[ -n "$fields_md" ]]; then
+      content+="- **Fields:**"$'\n'
+      content+="${fields_md}"$'\n'
+    else
+      content+="- **Fields:** - (none)"$'\n'
+    fi
+
+    # Enrich with CMS description when available
+    if [[ -f "$CMS_EN_MAP" ]]; then
+      desc=$(awk -F"\t" -v s="$simple_name" '{ n=split($1,a,"."); if (a[n]==s) {print $2; exit} }' "$CMS_EN_MAP" 2>/dev/null || true)
+      if [[ -z "$desc" && -n "$namespace" ]]; then
+        desc=$(awk -F"\t" -v ns="$namespace" -v s="$simple_name" '{ if (index($1, ns) && index($1, s)) {print $2; exit} }' "$CMS_EN_MAP" 2>/dev/null || true)
+      fi
+      if [[ -n "$desc" ]]; then
+        purpose_line="$desc"
+      fi
+    fi
+
+    content+="- **Purpose:** ${purpose_line}"$'\n'
+
+    content+=$'\n'
+  done < <(find "${src_hd}" -type f -name '*Process.p.json' -print0 | sort -z)
+
+  if [[ $FORM_COMPONENT_COUNT -eq 0 ]]; then
+    FORM_STATUS="MISSING"
+  else
+    FORM_STATUS="OK"
+    printf '%s' "$content"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 3. Rest Clients (OpenAPI from rest-clients.yaml)
+# ---------------------------------------------------------------------------
+build_rest_clients_section() {
+  local rest_clients="${MAIN_MODULE}/config/rest-clients.yaml"
+  local content=""
+
+  if [[ ! -f "$rest_clients" ]]; then
+    REST_ENTRIES=0
+    REST_STATUS="MISSING"
+    return
+  fi
+
+  local spec_url
+  spec_url=""
+  local found=0
+
+  while IFS= read -r line; do
+    if [[ "$line" =~ SpecUrl:[[:space:]]*(.*) ]]; then
+      spec_url="${BASH_REMATCH[1]}"
+      spec_url="${spec_url#\"}"
+      spec_url="${spec_url%\"}"
+      spec_url="${spec_url#\'}"
+      spec_url="${spec_url%\'}"
+      spec_url="${spec_url//$'\r'/}"
+      spec_url=$(echo "$spec_url" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+      if [[ "$spec_url" =~ ^https?:// ]]; then
+        content+="- **OpenAPI:** [${spec_url}](${spec_url})"$'\n'
+        found=$((found + 1))
+      fi
+    fi
+  done < "$rest_clients"
+
+  if [[ $found -eq 0 ]]; then
+    REST_ENTRIES=0
+    REST_STATUS="MISSING"
+  else
+    REST_ENTRIES=$found
+    REST_STATUS="OK"
+    printf '%s' "$content"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 4. Web Services (OpenAPI from webservice-clients.yaml)
+# ---------------------------------------------------------------------------
+build_web_services_section() {
+  local ws_clients="${MAIN_MODULE}/config/webservice-clients.yaml"
+  local content=""
+
+  if [[ ! -f "$ws_clients" ]]; then
+    WEB_ENTRIES=0
+    WEB_STATUS="MISSING"
+    return
+  fi
+
+  local spec_url
+  spec_url=""
+  local found=0
+
+  while IFS= read -r line; do
+    if [[ "$line" =~ SpecUrl:[[:space:]]*(.*) ]]; then
+      spec_url="${BASH_REMATCH[1]}"
+      spec_url="${spec_url#\"}"
+      spec_url="${spec_url%\"}"
+      spec_url="${spec_url#\'}"
+      spec_url="${spec_url%\'}"
+      spec_url="${spec_url//$'\r'/}"
+      spec_url=$(echo "$spec_url" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+      if [[ "$spec_url" =~ ^https?:// ]]; then
+        content+="- **OpenAPI:** [${spec_url}](${spec_url})"$'\n'
+        found=$((found + 1))
+      fi
+    fi
+  done < "$ws_clients"
+
+  if [[ $found -eq 0 ]]; then
+    WEB_ENTRIES=0
+    WEB_STATUS="MISSING"
+  else
+    WEB_ENTRIES=$found
+    WEB_STATUS="OK"
+    printf '%s' "$content"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 5. Maven Artifacts (from product.json)
+# ---------------------------------------------------------------------------
+build_maven_artifacts_section() {
+  local product_json="${PRODUCT_MODULE}/product.json"
+
+  if [[ ! -f "$product_json" ]]; then
+    MAVEN_ARTIFACTS=0
+    MAVEN_STATUS="MISSING"
+    return
+  fi
+
+  # Read pom.xml module order for sorting
+  local pom_modules=()
+  if [[ -f "pom.xml" ]]; then
+    while IFS= read -r mod; do
+      pom_modules+=("$mod")
+    done < <(grep -o '<module>[^<]*</module>' pom.xml | sed 's/<[^>]*>//g' 2>/dev/null || true)
+  fi
+
+  local idx=0
+  local content=""
+
+  # Process maven-dependency artifacts first (required), then maven-import (optional)
+  local all_artifacts
+  all_artifacts=$(jq -c '
+    [
+      .installers[]?
+      | if .id == "maven-dependency" then
+          (.data.dependencies[]? | . + { optional: false })
+        elif .id == "maven-import" then
+          (.data.projects[]? | . + { optional: ((.importInWorkspace // true) == false) })
+        else
+          empty
+        end
+      | select((.artifactId // "") | test("test$") | not)
+    ]
+  ' "$product_json" 2>/dev/null || echo "[]")
+
+  # Sort by pom.xml module order
+  local sorted_artifacts="[]"
+  if [[ ${#pom_modules[@]} -gt 0 ]]; then
+    local order_arg
+    order_arg=$(printf '%s\n' "${pom_modules[@]}" | jq -R . | jq -s .)
+    sorted_artifacts=$(echo "$all_artifacts" | jq --argjson order "$order_arg" '
+      def rank($order; $artifactId):
+        ($order | index($artifactId)) // 9999;
+      sort_by(rank($order; .artifactId))
+    ' 2>/dev/null || echo "$all_artifacts")
+  else
+    sorted_artifacts="$all_artifacts"
+  fi
+
+  while IFS= read -r artifact; do
+    idx=$((idx + 1))
+    local group_id artifact_id artifact_type optional_flag optional_label
+    group_id=$(echo "$artifact" | jq -r '.groupId // ""')
+    artifact_id=$(echo "$artifact" | jq -r '.artifactId // ""')
+    artifact_type=$(echo "$artifact" | jq -r '.type // "jar"')
+    optional_flag=$(echo "$artifact" | jq -r '.optional // false')
+
+    optional_label=""
+    if [[ "$optional_flag" == "true" ]]; then
+      optional_label=" *(optional)*"
+    fi
+
+    content+="${idx}. ${artifact_id}${optional_label}"$'\n\n'
+    content+='```xml'$'\n'
+    content+="<dependency>"$'\n'
+    content+="  <groupId>${group_id}</groupId>"$'\n'
+    content+="  <artifactId>${artifact_id}</artifactId>"$'\n'
+    content+="  <type>${artifact_type}</type>"$'\n'
+    content+="</dependency>"$'\n'
+    content+='```'$'\n\n'
+  done < <(echo "$sorted_artifacts" | jq -c '.[]?' 2>/dev/null)
+
+  if [[ $idx -eq 0 ]]; then
+    MAVEN_ARTIFACTS=0
+    MAVEN_STATUS="MISSING"
+  else
+    MAVEN_ARTIFACTS=$idx
+    MAVEN_STATUS="OK"
+    printf '%s' "$content"
+  fi
+}
+
+render_section_content() {
+  local status="$1"
+  local fallback="$2"
+  local content="$3"
+
+  if [[ "$status" == "MISSING" ]]; then
+    printf '%s\n' "$fallback"
+  else
+    printf '%s\n' "$content"
+  fi
+}
+
+assemble_en() {
+  local callable rest_clients web_svc form_comp maven_art
+  local callable_file form_file rest_file web_file maven_file
+
+  callable_file=$(mktemp)
+  form_file=$(mktemp)
+  rest_file=$(mktemp)
+  web_file=$(mktemp)
+  maven_file=$(mktemp)
+
+  build_callable_sub_section > "$callable_file"
+  build_dialog_components_section > "$form_file"
+  build_rest_clients_section > "$rest_file"
+  build_web_services_section > "$web_file"
+  build_maven_artifacts_section > "$maven_file"
+
+  callable=$(cat "$callable_file")
+  form_comp=$(cat "$form_file")
+  rest_clients=$(cat "$rest_file")
+  web_svc=$(cat "$web_file")
+  maven_art=$(cat "$maven_file")
+
+  rm -f "$callable_file" "$form_file" "$rest_file" "$web_file" "$maven_file"
+
+  printf '## Components\n\n'
+
+  printf '### Callable Subprocesses\n\n'
+  render_section_content "$CALLABLE_STATUS" '- For this market extension we do not provide any Callable Subprocesses.' "$callable"
+  printf '\n'
+
+  printf '### Dialog Components\n\n'
+  render_section_content "$FORM_STATUS" '- For this market extension we do not provide any Dialog Components.' "$form_comp"
+  printf '\n'
+
+  printf '### Rest Clients\n\n'
+  render_section_content "$REST_STATUS" '- For this market extension we do not provide any Rest Clients.' "$rest_clients"
+  printf '\n'
+
+  printf '### Web Services\n\n'
+  render_section_content "$WEB_STATUS" '- For this market extension we do not provide any Web Services.' "$web_svc"
+  printf '\n'
+
+  printf '### Maven Artifacts\n\n'
+  render_section_content "$MAVEN_STATUS" '- For this market extension we do not provide any Maven Artifacts.' "$maven_art"
+}
+
+# ---------------------------------------------------------------------------
+# 6. Translate to German
+# ---------------------------------------------------------------------------
+translate_de_prose() {
+  perl -0pe '
+    s/^### Callable Subprocesses$/### Aufrufbare Subprozesse/gm;
+    s/^### Dialog Components$/### Dialog-Komponenten/gm;
+    s/^### Rest Clients$/### Rest-Clients/gm;
+    s/^### Web Services$/### Webdienste/gm;
+    s/^- \*\*Signature:\*\*/- **Signatur:**/gm;
+    s/^    - Input:$/    - Eingabe:/gm;
+    s/^    - Input: \(none\)$/    - Eingabe: (keine)/gm;
+    s/^    - Result:$/    - Ergebnis:/gm;
+    s/^    - Result: \(none\)$/    - Ergebnis: (keine)/gm;
+    s/- For this market extension we do not provide any Callable Subprocesses\./- Für diese Market-Erweiterung stellen wir keine aufrufbaren Subprozesse bereit./g;
+    s/- For this market extension we do not provide any Dialog Components\./- Für diese Market-Erweiterung stellen wir keine Dialog-Komponenten bereit./g;
+    s/- For this market extension we do not provide any Rest Clients\./- Für diese Market-Erweiterung stellen wir keine Rest-Clients bereit./g;
+    s/- For this market extension we do not provide any Web Services\./- Für diese Market-Erweiterung stellen wir keine Webdienste bereit./g;
+    s/- For this market extension we do not provide any Maven Artifacts\./- Für diese Market-Erweiterung stellen wir keine Maven-Artefakte bereit./g;
+    s/\(no description available\)/(keine Beschreibung verfügbar)/g;
+    s/\(inferred purpose\)/(abgeleiteter Zweck)/g;
+    s/\*\*Component type:\*\*/**Komponententyp:**/g;
+    s/\*\*Fields:\*\*/**Felder:**/g;
+    s/- \*\*Fields:\*\* - \(none\)/- **Felder:** - (keine)/g;
+    s/- \*\*Fields:\*\* - \(none declared\)/- **Felder:** - (keine)/g;
+    s/\*\*Purpose:\*\*/**Zweck:**/g;
+    s/^    - Description:/    - Beschreibung:/gm;
+    s/ - The text to translate$/ - Der zu übersetzende Text/gm;
+    s/ - The wished target language$/ - Die gewünschte Zielsprache/gm;
+    s/ - The language to translate to$/ - Die Sprache, in die übersetzt werden soll/gm;
+    s/ - A file to translate \(e\.g\. docx, pdf, pptx\)$/ - Eine zu übersetzende Datei (z. B. docx, pdf, pptx)/gm;
+    s/ - Full options for rest client$/ - Vollständige Optionen für den REST-Client/gm;
+  '
+}
+
+translate_to_de() {
+  # Receives English Components block on stdin; prints German block to stdout.
+  # Rules: preserve code fences, inline code, URLs, XML, structural markers.
+  # Translate prose, headings, bullet text, descriptions.
+  sed \
+    -e 's/^## Components$/## Komponenten/' \
+    -e 's/^### Maven Artifacts$/### Maven-Artefakte/' \
+    -e 's/\*(optional)\*/*(optional)*/g' \
+  | translate_de_prose
+}
+
+assert_de_block_is_localized() {
+  local block_file
+  block_file=$(mktemp)
+  cat - > "$block_file"
+
+  local text_only
+  text_only=$(awk '
+    BEGIN { in_code = 0 }
+    /^```/ { in_code = !in_code; next }
+    in_code { next }
+    {
+      line = $0
+      gsub(/https?:\/\/[^ )]+/, "", line)
+      print line
+    }
+  ' "$block_file")
+
+  local patterns=(
+    '^### Callable Subprocesses$'
+    '^### Dialog Components$'
+    '^### Rest Clients$'
+    '^### Web Services$'
+    '^### Maven Artifacts$'
+    '\*\*Signature:\*\*'
+    ' - The text to translate$'
+    ' - The wished target language$'
+    ' - The language to translate to$'
+    ' - A file to translate \(e\.g\. docx, pdf, pptx\)$'
+    ' - Full options for rest client$'
+    'For this market extension we do not provide any'
+  )
+
+  local pattern
+  for pattern in "${patterns[@]}"; do
+    if printf '%s\n' "$text_only" | grep -qE "$pattern"; then
+      rm -f "$block_file"
+      echo "Error: German Components block still contains English text matching pattern: $pattern" >&2
+      return 1
+    fi
+  done
+
+  cat "$block_file"
+  rm -f "$block_file"
+}
+
+# ---------------------------------------------------------------------------
+# 7. Inject section into a README file
+#    Replaces existing heading block only (no append fallback).
+# ---------------------------------------------------------------------------
+inject_section() {
+  local file="$1"
+  local new_block="$2"
+  local expected_heading="$3"
+
+  if [[ ! -f "$file" ]]; then
+    echo "Error: target README does not exist: $file" >&2
+    return 1
+  fi
+
+  local tmp
+  tmp=$(mktemp)
+
+  if ! grep -qE "^${expected_heading}[[:space:]]*$" "$file" 2>/dev/null; then
+    echo "Error: section heading not found in $file (expected '${expected_heading}')." >&2
+    rm -f "$tmp"
+    return 1
+  fi
+
+  # Replace region from heading through end-of-file (or next same-level heading)
+  awk -v heading="$expected_heading" -v new_block="$new_block" '
+    BEGIN { in_section = 0; printed = 0 }
+    {
+      line = $0
+      sub(/[ \t]+$/, "", line)
+      if (line ~ /^## /) {
+        if (line == heading) {
+          in_section = 1
+          next
+        } else if (in_section) {
+          if (!printed) {
+            print new_block
+            print ""
+            printed = 1
+          }
+          in_section = 0
+          print
+          next
+        }
+      }
+      if (in_section) {
+        next
+      }
+      print
+    }
+    END {
+      if (!printed) {
+        print new_block
+      }
+    }
+  ' "$file" > "$tmp"
+
+  mv "$tmp" "$file"
+  echo "Updated: $file"
+
+  # Guard: ensure section heading still exists after replacement.
+  if ! grep -qE "^${expected_heading}[[:space:]]*$" "$file" 2>/dev/null; then
+    echo "Error: expected heading missing after update in $file" >&2
+    return 1
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 8. Main
+# ---------------------------------------------------------------------------
+echo "=== generate-components-section ==="
+echo "  mainModule    : $MAIN_MODULE"
+echo "  productModule : $PRODUCT_MODULE"
+echo "  targetReadme  : $TARGET_README"
+echo "  targetReadmeDe: $TARGET_README_DE"
+echo
+
+echo "Validating target README files and section headings..."
+validate_existing_target "$TARGET_README" "## Components"
+validate_existing_target "$TARGET_README_DE" "## Komponenten"
+
+en_heading_count=$(count_heading_occurrences "$TARGET_README" "## Components")
+de_heading_count=$(count_heading_occurrences "$TARGET_README_DE" "## Komponenten")
+if [[ "$en_heading_count" -ne 1 ]]; then
+  echo "Error: expected exactly one '## Components' heading in $TARGET_README but found $en_heading_count" >&2
+  exit 1
+fi
+if [[ "$de_heading_count" -ne 1 ]]; then
+  echo "Error: expected exactly one '## Komponenten' heading in $TARGET_README_DE but found $de_heading_count" >&2
+  exit 1
+fi
+
+# Prepare CMS maps (for descriptions and DE substitutions)
+echo "Preparing CMS maps..."
+build_cms_maps
+
+# Build English block
+echo "Building English Components section..."
+en_block_file=$(mktemp)
+assemble_en > "$en_block_file"
+en_block=$(cat "$en_block_file")
+rm -f "$en_block_file"
+
+# Build German block
+echo "Building German Components section..."
+# First apply CMS-provided German translations where available, then run general translation
+de_block=$(printf '%s\n' "$en_block" | apply_cms_de_translations | translate_to_de | assert_de_block_is_localized)
+
+# Inject into README.md
+inject_section "$TARGET_README" "$en_block" "## Components"
+
+# Inject into README_DE.md
+inject_section "$TARGET_README_DE" "$de_block" "## Komponenten"
+
+echo
+# Cleanup CMS temp files
+rm -f "${CMS_EN_MAP:-}" "${CMS_DE_MAP:-}" 2>/dev/null || true
+# ---------------------------------------------------------------------------
+# 9. Report summary (per SKILL Step 7)
+# ---------------------------------------------------------------------------
+
+status_label() {
+  case "$1" in
+    OK|"OK") echo "OK" ;;
+    PARTIAL|"PARTIAL") echo "PARTIAL" ;;
+    MISSING|"MISSING") echo "MISSING" ;;
+    *) echo "UNKNOWN" ;;
+  esac
+}
+
+callable_label=$(status_label "$CALLABLE_STATUS")
+form_label=$(status_label "$FORM_STATUS")
+rest_label=$(status_label "$REST_STATUS")
+web_label=$(status_label "$WEB_STATUS")
+maven_label=$(status_label "$MAVEN_STATUS")
+
+printf '[%s]  %-22s — %s\n' "$callable_label" "callableSubSection" "${CALLABLE_RENDERED:-0} callable subs from ${CALLABLE_FILES:-0} files"
+printf '[%s]  %-22s — %s\n' "$form_label" "formComponentSection" "${FORM_COMPONENT_COUNT:-0} components"
+printf '[%s]  %-22s — %s\n' "$rest_label" "restClientSection" "${REST_ENTRIES:-0} entries"
+printf '[%s]  %-22s — %s\n' "$web_label" "webServiceSection" "${WEB_ENTRIES:-0} entries"
+printf '[%s]  %-22s — %s\n' "$maven_label" "mavenArtifactSection" "${MAVEN_ARTIFACTS:-0} artifacts"
+
+echo "Written: ${TARGET_README}   (## Components section updated)"
+echo "Written: ${TARGET_README_DE} (## Komponenten section updated)"
+
+echo "Done."

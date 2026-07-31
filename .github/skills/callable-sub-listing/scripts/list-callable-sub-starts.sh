@@ -49,19 +49,10 @@ fi
       continue
     fi
 
-    # Count CallSubStart elements where tags contain "connector".
-    # Accept tags from either `.tags` or `.config.tags`, and handle string or array values.
-    start_count=$(jq '[.elements[]? |
-      select(.type == "CallSubStart" and (
-        ((.tags // .config.tags // [])
-          | (if type == "array" then . else [.] end)
-          | map(tostring)
-          | map(gsub("^\\s+|\\s+$"; "") | ascii_downcase)
-          | index("connector")
-        )
-      ))] | length' "$file")
+    # Count all CallSubStart elements (not tag-filtered per SKILL.md).
+    start_count=$(jq '[.elements[]? | select(.type == "CallSubStart")] | length' "$file")
 
-    # If no matching CallSubStart entries in this file, skip printing the file header.
+    # If no CallSubStart entries in this file, skip printing the file header.
     if [[ "$start_count" -eq 0 ]]; then
       continue
     fi
@@ -69,20 +60,29 @@ fi
     # Count only files that contain at least one matching CallSubStart.
     callable_count=$((callable_count + 1))
 
-    echo "#### $file"
+    echo "#### $(basename "$file")"
 
     jq -r '
-      def has_connector:
-        ((.tags // .config.tags // [])
-          | (if type == "array" then . else [.] end)
-          | map(tostring)
-          | map(gsub("^\\s+|\\s+$"; "") | ascii_downcase)
-          | index("connector")
-        );
-
       .elements[]?
-      | select(.type == "CallSubStart" and has_connector)
-      | "- Signature: " + (.config.callSignature // .config.signature // "") + "\n"
+      | select(.type == "CallSubStart")
+      | (
+          (.config.signature // .name // "") as $sigName
+          | ((.config.input.params // .config.parameter.params // [])
+            | map((.type // "") + " " + (.name // ""))
+            | map(gsub("^ +| +$"; ""))
+            | join(", ")) as $inputSig
+          | ((.config.result.params // [])
+            | map((.name // "") + ": " + (.type // ""))
+            | map(gsub("^ +| +$"; ""))
+            | join(", ")) as $resultSig
+          | "- **Signature**: "
+            + $sigName
+            + "("
+            + $inputSig
+            + ")"
+            + (if $resultSig == "" then "" else " -> " + $resultSig end)
+            + "\n"
+        )
       + "  Input: "
       + (if (.config.input // .config.parameter) then
          ((((.config.input // .config.parameter).params // [])

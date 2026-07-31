@@ -3,27 +3,58 @@ set -euo pipefail
 
 # Usage:
 #   bash list-callable-sub-starts-json.sh [glob] [output-file]
+#   bash list-callable-sub-starts-json.sh <mainModule> [glob] [output-file]
 # Examples:
 #   bash list-callable-sub-starts-json.sh
 #   bash list-callable-sub-starts-json.sh './msgraph-connector/processes/*.p.json'
 #   bash list-callable-sub-starts-json.sh './**/*.p.json' docs/callable-sub-starts.json
 
-GLOB_PATTERN="${1:-./**/*.p.json}"
-OUTPUT_FILE="${2:-}"
+ARG1="${1:-}"
+ARG2="${2:-}"
+ARG3="${3:-}"
+
+MODULE_MODE=false
+MAIN_MODULE=""
+GLOB_PATTERN=""
+OUTPUT_FILE=""
+
+if [[ -n "$ARG1" && -d "$ARG1" && -d "$ARG1/processes" ]]; then
+  MODULE_MODE=true
+  MAIN_MODULE="$ARG1"
+  GLOB_PATTERN="${ARG2:-**/*.p.json}"
+  OUTPUT_FILE="${ARG3:-}"
+else
+  # Backward compatibility mode
+  GLOB_PATTERN="${ARG1:-./**/*.p.json}"
+  OUTPUT_FILE="${ARG2:-}"
+fi
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "Error: jq is required but not installed." >&2
   exit 1
 fi
 
-# Build file list from the provided glob using find fallback.
-if [[ "$GLOB_PATTERN" == "./**/*.p.json" ]]; then
+# Build file list from the provided glob using module-anchored defaults.
+files=()
+if [[ "$MODULE_MODE" == true ]]; then
+  if [[ "$GLOB_PATTERN" == "**/*.p.json" || "$GLOB_PATTERN" == "*.p.json" ]]; then
+    mapfile -d '' files < <(find "$MAIN_MODULE/processes" -type f -name '*.p.json' -print0 | sort -z)
+  else
+    shopt -s globstar nullglob
+    expanded=( "$MAIN_MODULE/processes"/$GLOB_PATTERN )
+    shopt -u globstar nullglob
+    for f in "${expanded[@]:-}"; do
+      if [[ -f "$f" && "$f" == *.p.json ]]; then
+        files+=("$f")
+      fi
+    done
+  fi
+elif [[ "$GLOB_PATTERN" == "./**/*.p.json" ]]; then
   mapfile -d '' files < <(find . -type f -name '*.p.json' -print0 | sort -z)
 else
   shopt -s globstar nullglob
   expanded=( $GLOB_PATTERN )
   shopt -u globstar nullglob
-  files=()
   for f in "${expanded[@]:-}"; do
     if [[ -f "$f" && "$f" == *.p.json ]]; then
       files+=("$f")
@@ -48,11 +79,28 @@ for file in "${files[@]}"; do
         file: $file,
         starts: [
           .elements[]?
-          | select(.type == "CallSubStart" and (((.tags // []) | map(if type == "string" then ascii_downcase else "" end)) | index("connector")))
+          | select(.type == "CallSubStart")
           | {
               id: (.id // null),
               name: (.name // null),
               signature: (.config.signature // null),
+              signatureText: (
+              (.config.signature // .name // "") as $sigName
+              | ((.config.input.params // .config.parameter.params // [])
+                | map((.type // "") + " " + (.name // ""))
+                | map(gsub("^ +| +$"; ""))
+                | join(", ")) as $inputSig
+              | ((.config.result.params // [])
+                | map((.name // "") + ": " + (.type // ""))
+                | map(gsub("^ +| +$"; ""))
+                | join(", ")) as $resultSig
+              | "- **Signature**: "
+                + $sigName
+                + "("
+                + $inputSig
+                + ")"
+                + (if $resultSig == "" then "" else " -> " + $resultSig end)
+              ),
               tags: (.tags // []),
               input: (
                 if .config.input then

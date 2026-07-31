@@ -1,45 +1,52 @@
 # Output Format Reference
 
-This document defines the concise dialogs-only markdown schema that the `form-components-listing` skill must return.
+This document defines the required markdown schema that the `form-components-listing` skill must return.
 
-For each UI dialog the skill should emit a short block with these fields in this order:
+## Required Per-Component Shape
 
-- `UI dialog name`: a friendly identifier (folder or view name).
-- `namespace`: fully-qualified namespace, if available from `.p.json` or `.d.json` files; otherwise `(unknown)`.
-- `start parameter`: the declared process start parameter or method signature used to open the dialog; `(none)` when absent.
-- `main feature/logic`: a one- to two-line summary describing the dialog's primary purpose or behavior. This should be inferred from process descriptions, nested components, or adjacent JavaScript files — do not list components themselves.
+For each dialog or form component, emit exactly one block with this structure and this field order:
 
-Example
-
-```
-UI dialog name: ViewNotPermittedPage
-- namespace: com.axonivy.solutions.process.analyser.ViewNotPermittedPage
-- start parameter: (none)
-- main feature/logic: Informational page shown when the user lacks access rights; displays reason and link to request permission.
+```markdown
+#### ComponentName
+- **Namespace:** full.namespace.or.(unknown)
+- **Component type:** Component dialog | UI dialog | Form dialog
+- **Fields:**
+  - `fieldName` (FieldType) — description
+- **Purpose:** One user-facing sentence
 ```
 
-Notes
-- The format is intentionally compact and human-readable for marketing-style summaries.
-- Implementations should treat input paths generically; do not hardcode module names.
-# Output Format
+## Rules
 
-The generated report is Markdown.
+- `####` heading is required for every component.
+- `Namespace`, `Component type`, `Fields`, and `Purpose` are mandatory lines and must appear in that order.
+- `Fields` must always be rendered as a section.
+- If no fields are declared in the start signature, render:
 
-## Sections
-- One section per form directory:
-  - `#### <UI form component name>`
-- Under each component:
-  - one bullet per criteria:
-    - `Namespace`
-    - `Component type`
-    - `Parameter`
-    - `Main logic/feature included in that UI`: some main features that UI can execute which is extracted via UI process, its managedbean, and additional javascript.
+```markdown
+- **Fields:** - (none)
+```
+
+- If no purpose can be extracted from CMS, XHTML, or process metadata, render:
+
+```markdown
+- **Purpose:** (not documented in source)
+```
+
+## Forbidden Output
+
+Do not emit any of the following labels in the final markdown:
+
+- `Parameter`
+- `Main feature/logic`
+- `UI attributes`
+- `Paths`
 
 ## Example Output
-```
-#### ProcessAnalytics
-- Namespace: com.axonivy.solutions.process.analyser.ProcessAnalytics
-- Component type: HTML_DIALOG
-- Parameter: widgetMode
-- Main feature/logic: Requests a DocuWare LoginToken using username and password; displays the token for copy/backup and updates an Ivy variable on success.
+
+```markdown
+#### WriteMail
+- **Namespace:** msgraph.mail.demo.WriteMail
+- **Component type:** UI dialog
+- **Fields:** - (none)
+- **Purpose:** Compose a mail, add or remove recipients, and send the message.
 ```

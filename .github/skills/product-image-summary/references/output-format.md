@@ -2,6 +2,8 @@
 
 The catalog script produces one entry per image. When placing images in the README, only the per-image entry structure matters — all header/summary/category wrapper sections are informational and produced by the script.
 
+External markdown image URLs found in README sources (for example `![ms-graph](https://...)`) are also valid entries and must be included in the catalog output.
+
 ## Per-Image Entry Structure
 
 ```markdown
@@ -21,6 +23,8 @@ The catalog script produces one entry per image. When placing images in the READ
 | **Suggested readme placement** | Which README section fits this group best (shown once per section) |
 | Entry heading | Auto-generated alt-text from filename (title-cased) |
 | Markdown snippet | Ready-to-copy `![alt](path)` for direct paste into README |
+
+For external image URLs, keep the URL unchanged and output the snippet as-is.
 
 ## Alt-Text Generation Rules
 
